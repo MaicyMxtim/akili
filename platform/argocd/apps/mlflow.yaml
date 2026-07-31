@@ -41,7 +41,7 @@ spec:
               keyOfSecretAccessKey: rootPassword
         # 4 default workers OOM a 1Gi pod; 2 is plenty for this cluster
         extraArgs:
-          workers: 2
+          workers: "2"
         extraEnvVars:
           MLFLOW_S3_ENDPOINT_URL: http://minio.minio.svc:9000
         resources:
