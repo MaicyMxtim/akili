@@ -16,7 +16,7 @@ spec:
         parameters:
           - name: source
       container:
-        image: akili-ingest:0.1.0
+        image: akili-ingest:0.1.1
         imagePullPolicy: IfNotPresent
         # emissary executor cannot read entrypoints of locally-imported
         # images, so the command must be explicit
