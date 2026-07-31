@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tenancy
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:MaicyMxtim/akili.git
+    targetRevision: main
+    path: platform/k8s/tenancy
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

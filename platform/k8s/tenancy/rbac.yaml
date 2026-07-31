@@ -1,0 +1,50 @@
+# Developer persona: full edit in dev, read-only in prod, nothing destructive
+# in prod. Bindings target the "akili-devs" group; users get mapped to the
+# group in their kubeconfig credentials.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: developer-edit
+  namespace: akili-dev
+rules:
+  - apiGroups: ["", "apps", "batch"]
+    resources: ["pods", "pods/log", "services", "configmaps", "deployments", "replicasets", "jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developer-edit
+  namespace: akili-dev
+subjects:
+  - kind: Group
+    name: akili-devs
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: developer-edit
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: developer-view
+  namespace: akili-prod
+rules:
+  - apiGroups: ["", "apps", "batch"]
+    resources: ["pods", "pods/log", "services", "configmaps", "deployments", "replicasets", "jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developer-view
+  namespace: akili-prod
+subjects:
+  - kind: Group
+    name: akili-devs
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: developer-view
+  apiGroup: rbac.authorization.k8s.io

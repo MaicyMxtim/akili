@@ -17,3 +17,11 @@ cluster:
 .PHONY: cluster-down
 cluster-down:
 	k3d cluster delete akili
+
+# installs Argo CD and the root app; needs the repo deploy key secret in
+# place first (see README). Everything else comes from git after this.
+.PHONY: platform-up
+platform-up:
+	helm upgrade --install argocd argo/argo-cd --version 10.2.1 \
+		-n argocd --create-namespace -f platform/argocd/values.yaml --wait
+	kubectl apply -f platform/argocd/root.yaml
