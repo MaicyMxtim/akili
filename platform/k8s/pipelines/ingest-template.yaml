@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: ingest-price-paid
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflow
+  entrypoint: ingest
+  arguments:
+    parameters:
+      - name: source
+        value: http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-monthly-update-new-version.csv
+  templates:
+    - name: ingest
+      inputs:
+        parameters:
+          - name: source
+      container:
+        image: akili-ingest:0.1.0
+        imagePullPolicy: IfNotPresent
+        args: ["{{inputs.parameters.source}}"]
+        env:
+          - name: MINIO_ENDPOINT
+            value: http://minio.minio.svc:9000
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: rootUser
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: rootPassword
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            memory: 1Gi

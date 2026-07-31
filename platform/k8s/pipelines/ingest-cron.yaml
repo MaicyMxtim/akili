@@ -1,0 +1,13 @@
+# Land Registry publishes the previous month's update around month end;
+# running on the 3rd catches it reliably
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: ingest-price-paid-monthly
+  namespace: argo
+spec:
+  schedule: "0 6 3 * *"
+  concurrencyPolicy: Forbid
+  workflowSpec:
+    workflowTemplateRef:
+      name: ingest-price-paid
