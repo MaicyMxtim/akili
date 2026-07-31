@@ -6,7 +6,8 @@ metadata:
   name: ingest-price-paid-monthly
   namespace: argo
 spec:
-  schedule: "0 6 3 * *"
+  schedules:
+    - "0 6 3 * *"
   concurrencyPolicy: Forbid
   workflowSpec:
     workflowTemplateRef:

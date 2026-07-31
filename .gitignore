@@ -1,5 +1,7 @@
-# data and model artifacts stay out of git (DVC takes over in Phase 3)
-data/
+# data and model artifacts stay out of git; DVC pointer files stay in
+data/*
+!data/*.dvc
+!data/.gitignore
 models/
 mlruns/
 
