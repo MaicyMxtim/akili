@@ -10,7 +10,7 @@ Full plan and phase list: [PROJECT-PLAN.md](PROJECT-PLAN.md).
 |---|---|---|
 | 0 | Baseline model on the laptop | done |
 | 1 | k3d cluster bring-up | done |
-| 2 | GitOps and platform baseline | not started |
+| 2 | GitOps and platform baseline | done |
 | 3 | Data pipeline | not started |
 | 4 | Experiment tracking and training pipeline | not started |
 | 5 | Registry and promotion gate | not started |
@@ -24,9 +24,24 @@ Full plan and phase list: [PROJECT-PLAN.md](PROJECT-PLAN.md).
 
 ## Quick start
 
-Needs: docker, k3d, uv, make.
+Needs: docker, k3d, uv, helm, make.
 
 ```
 make baseline   # download 2025 data and train the baseline model
 make cluster    # create the 5-node k3d cluster
 ```
+
+## Rebuilding the platform from git
+
+The cluster contents are managed by Argo CD from this repo. After `make cluster`, two manual steps bootstrap it: the repo deploy key secret, then `make platform-up`. Everything else self-installs from git.
+
+```
+kubectl -n argocd create secret generic repo-akili \
+  --from-literal=type=git \
+  --from-literal=url=git@github.com:MaicyMxtim/akili.git \
+  --from-file=sshPrivateKey=$HOME/.ssh/akili_deploy
+kubectl -n argocd label secret repo-akili argocd.argoproj.io/secret-type=repository
+make platform-up
+```
+
+The deploy key is read-only and lives at `~/.ssh/akili_deploy` (not in git). The Argo CD UI is available with `kubectl -n argocd port-forward svc/argocd-server 8080:80`; Grafana with `kubectl -n monitoring port-forward svc/monitoring-grafana 3000:80` (admin / REDACTED-ROTATED-CREDENTIAL).
