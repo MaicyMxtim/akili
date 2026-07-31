@@ -1,0 +1,63 @@
+# Rebuild area price features from raw parquet, then refresh the online
+# store. Runs after each monthly ingest (wired into the loop in Phase 9).
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: refresh-features
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflow
+  entrypoint: refresh
+  retryStrategy:
+    limit: "2"
+    retryPolicy: OnFailure
+  templates:
+    - name: refresh
+      steps:
+        - - name: build
+            template: build-features
+        - - name: materialize
+            template: materialize
+    - name: build-features
+      container:
+        image: akili-feast:0.1.0
+        imagePullPolicy: IfNotPresent
+        command: ["python", "/app/build_features.py"]
+        args:
+          - s3://akili-data/raw/pp/2025-12/pp.parquet
+          - s3://akili-data/raw/pp/2026-06/pp.parquet
+        env: &feast-env
+          - name: MINIO_ENDPOINT
+            value: http://minio.minio.svc:9000
+          - name: FEAST_REDIS_HOST
+            value: redis.akili-prod.svc
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: rootUser
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: rootPassword
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1Gi
+          limits:
+            memory: 2Gi
+    - name: materialize
+      container:
+        image: akili-feast:0.1.0
+        imagePullPolicy: IfNotPresent
+        command: ["sh", "-c"]
+        args:
+          - cd /app/feature_repo && feast apply && feast materialize-incremental $(date -u +%Y-%m-%dT%H:%M:%S)
+        env: *feast-env
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            memory: 1Gi

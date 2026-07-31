@@ -1,0 +1,9 @@
+project: akili
+provider: local
+registry: /tmp/feast/registry.db
+online_store:
+  type: redis
+  connection_string: ${FEAST_REDIS_HOST}:6379
+offline_store:
+  type: file
+entity_key_serialization_version: 3
