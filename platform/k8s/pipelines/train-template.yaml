@@ -43,6 +43,10 @@ spec:
           - --num-leaves
           - "{{inputs.parameters.num-leaves}}"
         env:
+          # LightGBM grabs every core by default; three parallel runs
+          # starved the kubelets and killed the sweep. Two threads each.
+          - name: OMP_NUM_THREADS
+            value: "2"
           - name: MLFLOW_TRACKING_URI
             value: http://mlflow.mlflow.svc
           - name: MLFLOW_S3_ENDPOINT_URL
@@ -62,4 +66,5 @@ spec:
             cpu: 500m
             memory: 1Gi
           limits:
+            cpu: "2"
             memory: 2Gi
