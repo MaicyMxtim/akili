@@ -10,10 +10,11 @@ MIN_ROWS = 1_000
 schema = pa.DataFrameSchema(
     columns={
         "transaction_id": pa.Column(str, nullable=False),
-        # £1 sales are real (nominal-value transfers); the floor only guards
-        # against corrupt values like negatives. Business filtering happens
-        # at training time, not ingest.
-        "price": pa.Column(int, pa.Check.in_range(1, 500_000_000)),
+        # bounds only guard against corrupt values (negatives, absurd
+        # magnitudes). Real data includes £1 nominal transfers and
+        # nine-figure portfolio deals; business filtering happens at
+        # training time, not ingest.
+        "price": pa.Column(int, pa.Check.in_range(1, 10_000_000_000)),
         "date": pa.Column("datetime64[ns]", nullable=False),
         "postcode": pa.Column(str, nullable=True),
         "property_type": pa.Column(str, pa.Check.isin(["D", "S", "T", "F", "O"])),
