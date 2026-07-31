@@ -1,0 +1,65 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: train-price-model
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflow
+  entrypoint: train
+  arguments:
+    parameters:
+      - name: train-data
+        value: s3://akili-data/raw/pp/2025-12/pp.parquet
+      - name: test-data
+        value: s3://akili-data/raw/pp/2026-06/pp.parquet
+      - name: n-estimators
+        value: "500"
+      - name: learning-rate
+        value: "0.05"
+      - name: num-leaves
+        value: "63"
+  templates:
+    - name: train
+      inputs:
+        parameters:
+          - name: train-data
+          - name: test-data
+          - name: n-estimators
+          - name: learning-rate
+          - name: num-leaves
+      container:
+        image: akili-train:0.1.0
+        imagePullPolicy: IfNotPresent
+        command: ["python", "train.py"]
+        args:
+          - --train-data
+          - "{{inputs.parameters.train-data}}"
+          - --test-data
+          - "{{inputs.parameters.test-data}}"
+          - --n-estimators
+          - "{{inputs.parameters.n-estimators}}"
+          - --learning-rate
+          - "{{inputs.parameters.learning-rate}}"
+          - --num-leaves
+          - "{{inputs.parameters.num-leaves}}"
+        env:
+          - name: MLFLOW_TRACKING_URI
+            value: http://mlflow.mlflow.svc
+          - name: MLFLOW_S3_ENDPOINT_URL
+            value: http://minio.minio.svc:9000
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: rootUser
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: rootPassword
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            memory: 2Gi

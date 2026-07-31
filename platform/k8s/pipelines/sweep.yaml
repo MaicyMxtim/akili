@@ -1,0 +1,32 @@
+# Fans one training run per parameter combination out across the cluster
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: sweep-price-model
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflow
+  entrypoint: sweep
+  templates:
+    - name: sweep
+      steps:
+        - - name: train
+            templateRef:
+              name: train-price-model
+              template: train
+            arguments:
+              parameters:
+                - name: train-data
+                  value: s3://akili-data/raw/pp/2025-12/pp.parquet
+                - name: test-data
+                  value: s3://akili-data/raw/pp/2026-06/pp.parquet
+                - name: n-estimators
+                  value: "{{item.n}}"
+                - name: learning-rate
+                  value: "{{item.lr}}"
+                - name: num-leaves
+                  value: "{{item.leaves}}"
+            withItems:
+              - { n: "300", lr: "0.05", leaves: "31" }
+              - { n: "500", lr: "0.05", leaves: "63" }
+              - { n: "800", lr: "0.03", leaves: "127" }
