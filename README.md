@@ -14,7 +14,7 @@ Full plan and phase list: [PROJECT-PLAN.md](PROJECT-PLAN.md).
 | 3 | Data pipeline | done |
 | 4 | Experiment tracking and training pipeline | done |
 | 5 | Registry and promotion gate | done |
-| 6 | Serving | not started |
+| 6 | Serving | done |
 | 7 | Feature store | not started |
 | 8 | Drift and model monitoring | not started |
 | 9 | The closed loop | not started |
