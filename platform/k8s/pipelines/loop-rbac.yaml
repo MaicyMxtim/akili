@@ -1,0 +1,24 @@
+# The loop's final step restarts the serving rollout from the argo namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rollout-restarter
+  namespace: akili-prod
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["rollouts"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rollout-restarter
+  namespace: akili-prod
+subjects:
+  - kind: ServiceAccount
+    name: argo-workflow
+    namespace: argo
+roleRef:
+  kind: Role
+  name: rollout-restarter
+  apiGroup: rbac.authorization.k8s.io

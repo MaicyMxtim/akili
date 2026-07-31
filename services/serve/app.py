@@ -24,11 +24,13 @@ log = logging.getLogger("serve")
 app = FastAPI(title="akili price API")
 Instrumentator().instrument(app).expose(app)
 model = None
+feature_store = None
 
 CATEGORICAL = [
     "property_type", "new_build", "duration",
     "postcode_area", "postcode_outward", "town", "district", "county",
 ]
+AREA_FEATURES = ["median_price_90d", "sales_count_90d"]
 
 
 class PredictRequest(BaseModel):
@@ -44,9 +46,30 @@ class PredictRequest(BaseModel):
 
 @app.on_event("startup")
 def load_model() -> None:
-    global model
+    global model, feature_store
     model = mlflow.lightgbm.load_model(MODEL_URI)
     log.info(f"loaded model {MODEL_URI}")
+    import sys
+    from feast import FeatureStore
+    sys.path.insert(0, "feature_repo")
+    from features import area_price_stats, outward as outward_entity
+    feature_store = FeatureStore(repo_path="feature_repo")
+    feature_store.apply([outward_entity, area_price_stats])
+    log.info("feature store connected")
+
+
+def area_features(outward: str) -> dict:
+    """Latest area stats from the online store; missing areas predict
+    without them (LightGBM handles NaN)."""
+    try:
+        vals = feature_store.get_online_features(
+            features=[f"area_price_stats:{f}" for f in AREA_FEATURES],
+            entity_rows=[{"outward": outward}],
+        ).to_dict()
+        return {f: vals[f][0] for f in AREA_FEATURES}
+    except Exception as err:
+        log.warning(f"online features unavailable: {err}")
+        return {f: None for f in AREA_FEATURES}
 
 
 @app.get("/healthz")
@@ -72,6 +95,7 @@ def predict(req: PredictRequest) -> dict:
         "district": req.district.upper(),
         "county": req.county.upper(),
         "month": req.month,
+        **area_features(outward),
     }])
     for col in CATEGORICAL:
         row[col] = row[col].astype("category")

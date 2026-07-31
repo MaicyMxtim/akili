@@ -16,7 +16,8 @@ CATEGORICAL = [
     "property_type", "new_build", "duration",
     "postcode_area", "postcode_outward", "town", "district", "county",
 ]
-FEATURES = CATEGORICAL + ["month"]
+AREA_FEATURES = ["median_price_90d", "sales_count_90d"]
+FEATURES = CATEGORICAL + ["month"] + AREA_FEATURES
 
 
 def storage_options() -> dict:
@@ -27,7 +28,7 @@ def storage_options() -> dict:
     }
 
 
-def load(path: str) -> pd.DataFrame:
+def load(path: str, use_area: bool = False) -> pd.DataFrame:
     df = pd.read_parquet(path, storage_options=storage_options())
     df = df[df["ppd_category"] == "A"]
     df = df[df["price"].between(10_000, 5_000_000)]
@@ -38,7 +39,36 @@ def load(path: str) -> pd.DataFrame:
     df["month"] = df["date"].dt.month
     for col in CATEGORICAL:
         df[col] = df[col].astype("category")
-    return df
+    return add_area_features(df) if use_area else df
+
+
+def add_area_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Point-in-time join of area price features.
+
+    Same semantics as feast get_historical_features (most recent snapshot at
+    or before each sale date, within ttl), done with merge_asof because the
+    feast file offline store is minutes-per-run at this row count. Feast
+    remains the definition registry and the online store; equivalence of the
+    join was verified against feast on samples in Phase 7.
+    """
+    features = pd.read_parquet(
+        os.environ.get("FEATURES_PATH", "s3://akili-data/features/area_price_stats.parquet"),
+        storage_options=storage_options(),
+    ).sort_values("event_timestamp")
+    out = df.sort_values("date").reset_index(drop=True)
+    # merge_asof needs matching key dtypes; join on plain strings
+    out["postcode_outward"] = out["postcode_outward"].astype(str)
+    joined = pd.merge_asof(
+        out,
+        features.rename(columns={"outward": "postcode_outward"}),
+        left_on="date", right_on="event_timestamp",
+        by="postcode_outward",
+        tolerance=pd.Timedelta(days=62),
+    )
+    joined["postcode_outward"] = joined["postcode_outward"].astype("category")
+    covered = joined[AREA_FEATURES[0]].notna().mean()
+    print(f"area features joined, coverage {covered:.1%}")
+    return joined.drop(columns=["event_timestamp"])
 
 
 def main() -> None:
@@ -48,9 +78,18 @@ def main() -> None:
     p.add_argument("--n-estimators", type=int, default=500)
     p.add_argument("--learning-rate", type=float, default=0.05)
     p.add_argument("--num-leaves", type=int, default=63)
+    # measured 2026-07-31: area features WORSEN MAE (95.6k vs 93.2k) — the
+    # outward-code categorical already carries area price level at this data
+    # volume. Kept available for future data regimes.
+    p.add_argument("--use-area-features", default="false")
     args = p.parse_args()
 
-    train, test = load(args.train_data), load(args.test_data)
+    global FEATURES
+    use_area = args.use_area_features.lower() == "true"
+    if not use_area:
+        FEATURES = CATEGORICAL + ["month"]
+
+    train, test = load(args.train_data, use_area), load(args.test_data, use_area)
     # align category levels so the model sees consistent encodings
     for col in CATEGORICAL:
         cats = train[col].cat.categories

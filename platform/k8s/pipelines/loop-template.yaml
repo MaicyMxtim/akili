@@ -1,0 +1,94 @@
+# The closed loop: month-end data in, evaluated model out, deployed if it
+# earns it. Any failing gate stops the chain and leaves prod untouched.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: month-end-loop
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflow
+  entrypoint: loop
+  arguments:
+    parameters:
+      - name: source
+        value: http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-monthly-update-new-version.csv
+      - name: train-data
+        value: s3://akili-data/raw/pp/2025-12/pp.parquet
+      - name: test-data
+        value: s3://akili-data/raw/pp/2026-06/pp.parquet
+      - name: min-improvement
+        value: "0"
+  templates:
+    - name: loop
+      inputs:
+        parameters:
+          - name: source
+          - name: train-data
+          - name: test-data
+          - name: min-improvement
+      steps:
+        - - name: ingest
+            templateRef:
+              name: ingest-price-paid
+              template: ingest
+            arguments:
+              parameters:
+                - name: source
+                  value: "{{inputs.parameters.source}}"
+        - - name: drift
+            templateRef:
+              name: drift-check
+              template: drift
+            arguments:
+              parameters:
+                - name: reference
+                  value: "{{inputs.parameters.train-data}}"
+                - name: current
+                  value: "{{inputs.parameters.test-data}}"
+            continueOn:
+              failed: true
+        - - name: features
+            templateRef:
+              name: refresh-features
+              template: refresh
+        - - name: train
+            templateRef:
+              name: train-price-model
+              template: train
+            arguments:
+              parameters:
+                - name: train-data
+                  value: "{{inputs.parameters.train-data}}"
+                - name: test-data
+                  value: "{{inputs.parameters.test-data}}"
+                - name: n-estimators
+                  value: "800"
+                - name: learning-rate
+                  value: "0.03"
+                - name: num-leaves
+                  value: "127"
+        - - name: promote
+            templateRef:
+              name: promote-price-model
+              template: promote
+            arguments:
+              parameters:
+                - name: run-id
+                  value: ""
+                - name: min-improvement
+                  value: "{{inputs.parameters.min-improvement}}"
+        - - name: rollout-restart
+            template: restart-serving
+    - name: restart-serving
+      container:
+        image: alpine/k8s:1.35.5
+        imagePullPolicy: IfNotPresent
+        command: ["sh", "-c"]
+        args:
+          - kubectl -n akili-prod patch rollout serve --type merge -p "{\"spec\":{\"restartAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}"
+        resources:
+          requests:
+            cpu: 25m
+            memory: 32Mi
+          limits:
+            memory: 64Mi
