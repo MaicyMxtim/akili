@@ -11,7 +11,7 @@ Full plan and phase list: [PROJECT-PLAN.md](PROJECT-PLAN.md).
 | 0 | Baseline model on the laptop | done |
 | 1 | k3d cluster bring-up | done |
 | 2 | GitOps and platform baseline | done |
-| 3 | Data pipeline | not started |
+| 3 | Data pipeline | done |
 | 4 | Experiment tracking and training pipeline | not started |
 | 5 | Registry and promotion gate | not started |
 | 6 | Serving | not started |
