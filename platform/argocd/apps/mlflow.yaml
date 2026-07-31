@@ -46,6 +46,9 @@ spec:
           workers: "1"
         extraEnvVars:
           MLFLOW_S3_ENDPOINT_URL: http://minio.minio.svc:9000
+          # security middleware rejects the in-cluster service hostname
+          # otherwise ("possible DNS rebinding attack"); verified locally
+          MLFLOW_SERVER_ALLOWED_HOSTS: "*"
         resources:
           requests:
             cpu: 100m
