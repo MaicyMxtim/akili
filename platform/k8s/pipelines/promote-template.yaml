@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: promote-price-model
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflow
+  entrypoint: promote
+  arguments:
+    parameters:
+      - name: run-id
+        value: ""
+      - name: min-improvement
+        value: "0"
+  templates:
+    - name: promote
+      inputs:
+        parameters:
+          - name: run-id
+          - name: min-improvement
+      container:
+        image: akili-train:0.2.0
+        imagePullPolicy: IfNotPresent
+        command: ["python", "promote.py"]
+        args:
+          - --run-id
+          - "{{inputs.parameters.run-id}}"
+          - --min-improvement
+          - "{{inputs.parameters.min-improvement}}"
+        env:
+          - name: MLFLOW_TRACKING_URI
+            value: http://mlflow.mlflow.svc
+          - name: MLFLOW_S3_ENDPOINT_URL
+            value: http://minio.minio.svc:9000
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: rootUser
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: rootPassword
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            memory: 512Mi

@@ -28,7 +28,7 @@ spec:
           - name: learning-rate
           - name: num-leaves
       container:
-        image: akili-train:0.1.1
+        image: akili-train:0.2.0
         imagePullPolicy: IfNotPresent
         command: ["python", "train.py"]
         args:
