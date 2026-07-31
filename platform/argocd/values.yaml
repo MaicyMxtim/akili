@@ -9,13 +9,14 @@ applicationSet:
 configs:
   params:
     server.insecure: true
+# 512Mi was OOMKilling the controller once monitoring's CRDs arrived
 controller:
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
-    limits:
       memory: 512Mi
+    limits:
+      memory: 1Gi
 server:
   resources:
     requests:
