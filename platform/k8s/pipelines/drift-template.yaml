@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: drift-check
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflow
+  entrypoint: drift
+  arguments:
+    parameters:
+      - name: reference
+        value: s3://akili-data/raw/pp/2025-12/pp.parquet
+      - name: current
+        value: s3://akili-data/raw/pp/2026-06/pp.parquet
+  templates:
+    - name: drift
+      inputs:
+        parameters:
+          - name: reference
+          - name: current
+      container:
+        image: akili-drift:0.1.0
+        imagePullPolicy: IfNotPresent
+        command: ["python", "drift_check.py"]
+        args:
+          - "{{inputs.parameters.reference}}"
+          - "{{inputs.parameters.current}}"
+        env:
+          - name: MINIO_ENDPOINT
+            value: http://minio.minio.svc:9000
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: rootUser
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: rootPassword
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1Gi
+          limits:
+            memory: 2Gi
+---
+# monthly, two days after the ingest cron so the new file is in place
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: drift-check-monthly
+  namespace: argo
+spec:
+  schedules:
+    - "0 6 5 * *"
+  concurrencyPolicy: Forbid
+  workflowSpec:
+    workflowTemplateRef:
+      name: drift-check

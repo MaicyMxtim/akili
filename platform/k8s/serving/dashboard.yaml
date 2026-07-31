@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-model-health
+  namespace: akili-prod
+  labels:
+    grafana_dashboard: "1"
+data:
+  model-health.json: |
+    {
+      "title": "akili model health",
+      "uid": "akili-model-health",
+      "timezone": "browser",
+      "refresh": "30s",
+      "time": {"from": "now-6h", "to": "now"},
+      "panels": [
+        {
+          "id": 1, "type": "stat", "title": "availability (5m)",
+          "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0.98, "max": 1,
+            "thresholds": {"steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.99}, {"color": "green", "value": 0.995}]}}},
+          "targets": [{"expr": "serve:availability:rate5m", "refId": "A"}]
+        },
+        {
+          "id": 2, "type": "stat", "title": "p95 latency",
+          "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0},
+          "fieldConfig": {"defaults": {"unit": "s",
+            "thresholds": {"steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.2}, {"color": "red", "value": 0.4}]}}},
+          "targets": [{"expr": "serve:latency_p95:rate5m", "refId": "A"}]
+        },
+        {
+          "id": 3, "type": "timeseries", "title": "prediction requests per second",
+          "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0},
+          "targets": [{"expr": "sum(rate(http_requests_total{namespace=\"akili-prod\", handler=\"/predict\"}[5m])) or vector(0)", "refId": "A", "legendFormat": "predictions/s"}]
+        },
+        {
+          "id": 4, "type": "timeseries", "title": "5xx rate",
+          "gridPos": {"h": 6, "w": 12, "x": 0, "y": 6},
+          "targets": [{"expr": "sum(rate(http_requests_total{namespace=\"akili-prod\", status=~\"5..\"}[5m])) or vector(0)", "refId": "A", "legendFormat": "5xx/s"}]
+        },
+        {
+          "id": 5, "type": "timeseries", "title": "serve pod memory",
+          "gridPos": {"h": 6, "w": 12, "x": 12, "y": 6},
+          "fieldConfig": {"defaults": {"unit": "bytes"}},
+          "targets": [{"expr": "sum(container_memory_working_set_bytes{namespace=\"akili-prod\", pod=~\"serve-.*\", container=\"serve\"}) by (pod)", "refId": "A", "legendFormat": "{{pod}}"}]
+        }
+      ]
+    }

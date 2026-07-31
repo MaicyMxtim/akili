@@ -1,0 +1,53 @@
+# SLOs for the prediction API: 99.5% availability, p95 under 400ms.
+# Multi-window burn rates: fast burn would page, slow burn is a ticket.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: serve-slo
+  namespace: akili-prod
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: serve.slo.rules
+      rules:
+        - record: serve:availability:rate5m
+          expr: |
+            1 - (
+              (sum(rate(http_requests_total{namespace="akili-prod",status=~"5.."}[5m])) or vector(0))
+              /
+              (sum(rate(http_requests_total{namespace="akili-prod"}[5m])) > 0 or vector(1))
+            )
+        - record: serve:latency_p95:rate5m
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{namespace="akili-prod"}[5m])) by (le)
+            ) or vector(0)
+    - name: serve.slo.alerts
+      rules:
+        - alert: ServeErrorBudgetFastBurn
+          expr: |
+            (1 - serve:availability:rate5m) > (14.4 * 0.005)
+          for: 5m
+          labels:
+            severity: page
+          annotations:
+            summary: Prediction API burning error budget 14x too fast
+            runbook: runbooks/ServeErrorBudgetBurn.md
+        - alert: ServeErrorBudgetSlowBurn
+          expr: |
+            (1 - serve:availability:rate5m) > (1.0 * 0.005)
+          for: 1h
+          labels:
+            severity: ticket
+          annotations:
+            summary: Prediction API steadily burning error budget
+            runbook: runbooks/ServeErrorBudgetBurn.md
+        - alert: ServeLatencyP95High
+          expr: serve:latency_p95:rate5m > 0.4
+          for: 15m
+          labels:
+            severity: ticket
+          annotations:
+            summary: Prediction API p95 latency above 400ms
+            runbook: runbooks/ServeLatencyHigh.md

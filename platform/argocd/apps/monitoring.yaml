@@ -40,6 +40,9 @@ spec:
                 memory: 128Mi
         grafana:
           adminPassword: REDACTED-ROTATED-CREDENTIAL
+          sidecar:
+            dashboards:
+              searchNamespace: ALL
           resources:
             requests:
               cpu: 50m
