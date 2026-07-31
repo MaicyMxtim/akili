@@ -1,0 +1,37 @@
+# Prometheus lives in monitoring; akili-prod is default-deny, so scraping
+# needs an explicit ingress allowance (the exact gap that bit Tamani)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: akili-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: serve
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 8000
+          protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: serve
+  namespace: akili-prod
+  labels:
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: serve
+  endpoints:
+    - port: ""
+      targetPort: 8000
+      path: /metrics
+      interval: 15s
