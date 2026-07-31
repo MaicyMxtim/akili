@@ -44,6 +44,8 @@ spec:
           ports:
             - containerPort: 8000
           env:
+            - name: MODEL_URI
+              value: models:/price-model@nonexistent
             - name: MLFLOW_TRACKING_URI
               value: http://mlflow.mlflow.svc
             - name: MLFLOW_S3_ENDPOINT_URL
