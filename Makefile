@@ -8,9 +8,12 @@ data/pp-2025.csv:
 baseline: data/pp-2025.csv
 	uv run python ml/baseline.py $<
 
+# 1 server + 4 agents: a 3-server etcd quorum on one laptop VM flapped the
+# API under load (proven and written up); HA was demonstrated in Phase 1.
+# Multi-node scheduling, drains and PDBs only need multiple agents.
 .PHONY: cluster
 cluster:
-	k3d cluster create akili --servers 3 --agents 2 \
+	k3d cluster create akili --servers 1 --agents 4 \
 		--k3s-arg "--disable=traefik@server:*" \
 		--wait
 
