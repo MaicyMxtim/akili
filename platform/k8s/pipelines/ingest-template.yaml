@@ -18,6 +18,9 @@ spec:
       container:
         image: akili-ingest:0.1.0
         imagePullPolicy: IfNotPresent
+        # emissary executor cannot read entrypoints of locally-imported
+        # images, so the command must be explicit
+        command: ["python", "ingest.py"]
         args: ["{{inputs.parameters.source}}"]
         env:
           - name: MINIO_ENDPOINT
