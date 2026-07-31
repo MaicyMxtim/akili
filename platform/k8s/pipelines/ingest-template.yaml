@@ -6,6 +6,11 @@ metadata:
 spec:
   serviceAccountName: argo-workflow
   entrypoint: ingest
+  # transient network failures on the 162MB downloads are real; genuine
+  # validation failures just fail again quickly
+  retryStrategy:
+    limit: "2"
+    retryPolicy: OnFailure
   arguments:
     parameters:
       - name: source
