@@ -13,7 +13,7 @@ Full plan and phase list: [PROJECT-PLAN.md](PROJECT-PLAN.md).
 | 2 | GitOps and platform baseline | done |
 | 3 | Data pipeline | done |
 | 4 | Experiment tracking and training pipeline | done |
-| 5 | Registry and promotion gate | not started |
+| 5 | Registry and promotion gate | done |
 | 6 | Serving | not started |
 | 7 | Feature store | not started |
 | 8 | Drift and model monitoring | not started |
