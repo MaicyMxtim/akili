@@ -26,16 +26,11 @@ spec:
                 memory: 128Mi
               limits:
                 memory: 256Mi
+        # the chart wires the connection to its bundled postgres itself;
+        # setting backendStore.postgres as well is rejected by its schema
         backendStore:
           databaseMigration: true
           databaseConnectionCheck: true
-          postgres:
-            enabled: true
-            host: mlflow-postgresql
-            port: 5432
-            database: mlflow
-            user: mlflow
-            password: REDACTED-ROTATED-CREDENTIAL
         artifactRoot:
           s3:
             enabled: true
