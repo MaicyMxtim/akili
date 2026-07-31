@@ -1,5 +1,5 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: serve
   namespace: akili-prod
@@ -7,10 +7,18 @@ metadata:
     app: serve
 spec:
   replicas: 2
+  progressDeadlineSeconds: 300
+  progressDeadlineAbort: true
   strategy:
-    rollingUpdate:
-      maxSurge: 0
-      maxUnavailable: 1
+    canary:
+      # 2 replicas: first step replaces one pod, analysis judges it on
+      # live error rate, then the second follows
+      steps:
+        - setWeight: 50
+        - analysis:
+            templates:
+              - templateName: serve-error-rate
+        - setWeight: 100
   selector:
     matchLabels:
       app: serve
