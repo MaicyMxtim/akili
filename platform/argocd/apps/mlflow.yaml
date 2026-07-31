@@ -8,7 +8,9 @@ spec:
   source:
     repoURL: https://community-charts.github.io/helm-charts
     chart: mlflow
-    targetRevision: 1.11.2
+    # 1.11.2 ships MLflow 3.14, which leaks server processes until the pod
+    # OOMs (reproduced outside k8s). 1.8.1 ships the older stable 3.7.
+    targetRevision: 1.8.1
     helm:
       valuesObject:
         # password in git is a known tradeoff while the repo is private;
