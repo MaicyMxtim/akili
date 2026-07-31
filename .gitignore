@@ -1,0 +1,13 @@
+# data and model artifacts stay out of git (DVC takes over in Phase 3)
+data/
+models/
+mlruns/
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# local env
+.env
+.DS_Store
