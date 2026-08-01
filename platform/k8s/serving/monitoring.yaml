@@ -35,3 +35,23 @@ spec:
       targetPort: 8000
       path: /metrics
       interval: 15s
+---
+# in-cluster load generation (k6 jobs in the argo namespace)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-loadtest
+  namespace: akili-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: serve
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: argo
+      ports:
+        - port: 8000
+          protocol: TCP
