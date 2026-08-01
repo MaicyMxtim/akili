@@ -1,0 +1,6 @@
+# CVE-2026-32871: SSRF in fastmcp's MCP server component. fastmcp arrives as
+# a transitive dependency of mlflow (which pins the vulnerable range, so no
+# compatible fixed version exists). Our containers use the mlflow client and
+# never start an MCP server; the vulnerable code path is unreachable.
+# Accepted 2026-08-01. Revisit when mlflow client is next upgraded.
+CVE-2026-32871

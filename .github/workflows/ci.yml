@@ -64,6 +64,7 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           exit-code: "1"
+          trivyignores: .trivyignore
       - name: sbom
         uses: anchore/sbom-action@v0
         with:
