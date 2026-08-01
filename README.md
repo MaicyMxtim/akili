@@ -17,7 +17,7 @@ Full plan and phase list: [PROJECT-PLAN.md](PROJECT-PLAN.md).
 | 6 | Serving | done |
 | 7 | Feature store | done |
 | 8 | Drift and model monitoring | done |
-| 9 | The closed loop | not started |
+| 9 | The closed loop | done |
 | 10 | Supply chain for models | not started |
 | 11 | Reliability and chaos | not started |
 | 12 | Economics and write-up | not started |
