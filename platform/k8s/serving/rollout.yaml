@@ -52,6 +52,8 @@ spec:
               value: http://minio.minio.svc:9000
             - name: MODEL_SIGNING_PUB_PATH
               value: /etc/model-signing/pub.pem
+            - name: FEAST_REDIS_HOST
+              value: redis.akili-prod.svc
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
@@ -68,18 +70,24 @@ spec:
             - name: signing-pub
               mountPath: /etc/model-signing
               readOnly: true
+          # the probe now runs a real prediction, so it needs more than the
+          # 1s default timeout
           readinessProbe:
             httpGet:
               path: /healthz
               port: 8000
             initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8000
-            initialDelaySeconds: 20
+            initialDelaySeconds: 30
             periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
           resources:
             requests:
               cpu: 100m
