@@ -13,7 +13,9 @@ spec:
       provider:
         prometheus:
           address: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
+          # both sides guarded: an error-free service must yield 0, not an
+          # empty vector (empty crashes the success condition)
           query: |
-            sum(rate(http_requests_total{namespace="akili-prod",status=~"5.."}[2m]))
+            (sum(rate(http_requests_total{namespace="akili-prod",status=~"5.."}[2m])) or vector(0))
             /
-            (sum(rate(http_requests_total{namespace="akili-prod"}[2m])) > 0 or vector(1))
+            (sum(rate(http_requests_total{namespace="akili-prod"}[2m])) or vector(1))
