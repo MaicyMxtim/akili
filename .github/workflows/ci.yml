@@ -51,12 +51,14 @@ jobs:
         with:
           context: ${{ matrix.image.context }}
           push: true
-          tags: ghcr.io/maicymxtim/${{ matrix.image.name }}:${{ github.sha }}
+          tags: |
+            ghcr.io/maicymxtim/${{ matrix.image.name }}:${{ github.sha }}
+            ghcr.io/maicymxtim/${{ matrix.image.name }}:main
       - uses: sigstore/cosign-installer@v3
       - name: sign image (keyless, github oidc)
         run: cosign sign --yes ghcr.io/maicymxtim/${{ matrix.image.name }}@${{ steps.push.outputs.digest }}
       - name: trivy scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ghcr.io/maicymxtim/${{ matrix.image.name }}:${{ github.sha }}
           severity: CRITICAL

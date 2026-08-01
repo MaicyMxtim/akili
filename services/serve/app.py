@@ -44,10 +44,52 @@ class PredictRequest(BaseModel):
     month: int = Field(default=6, ge=1, le=12)
 
 
+def dir_digest(path: str) -> str:
+    import hashlib
+    from pathlib import Path
+    lines = []
+    for f in sorted(Path(path).rglob("*")):
+        if f.is_file():
+            lines.append(f"{f.relative_to(path)}:{hashlib.sha256(f.read_bytes()).hexdigest()}")
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
+
+
+def verify_and_load():
+    """Refuse to serve any model whose signature is missing or wrong."""
+    import json
+    from pathlib import Path
+
+    import mlflow.artifacts
+    import s3fs
+    from cryptography.hazmat.primitives import serialization
+    from mlflow import MlflowClient
+
+    version = MlflowClient().get_model_version_by_alias("price-model", "champion").version
+    local = mlflow.artifacts.download_artifacts(f"models:/price-model/{version}")
+    fs = s3fs.S3FileSystem(
+        key=os.environ["AWS_ACCESS_KEY_ID"], secret=os.environ["AWS_SECRET_ACCESS_KEY"],
+        client_kwargs={"endpoint_url": os.environ["MLFLOW_S3_ENDPOINT_URL"]},
+    )
+    with fs.open(f"akili-mlflow/signatures/price-model-v{version}.json") as f:
+        sig = json.load(f)
+    digest = dir_digest(local)
+    if digest != sig["digest"]:
+        raise RuntimeError(f"model v{version} digest mismatch: artifact was modified after signing")
+    pub = serialization.load_pem_public_key(
+        Path(os.environ["MODEL_SIGNING_PUB_PATH"]).read_bytes()
+    )
+    pub.verify(bytes.fromhex(sig["signature"]), digest.encode())
+    log.info(f"model v{version} signature verified ({digest[:12]}...)")
+    return mlflow.lightgbm.load_model(local)
+
+
 @app.on_event("startup")
 def load_model() -> None:
     global model, feature_store
-    model = mlflow.lightgbm.load_model(MODEL_URI)
+    if os.environ.get("MODEL_SIGNING_PUB_PATH"):
+        model = verify_and_load()
+    else:
+        model = mlflow.lightgbm.load_model(MODEL_URI)
     log.info(f"loaded model {MODEL_URI}")
     import sys
     from feast import FeatureStore

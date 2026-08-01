@@ -42,9 +42,19 @@ spec:
               secretKeyRef:
                 name: minio-creds
                 key: rootPassword
+          - name: MODEL_SIGNING_KEY_PATH
+            value: /etc/model-signing/key.pem
+        volumeMounts:
+          - name: signing-key
+            mountPath: /etc/model-signing
+            readOnly: true
         resources:
           requests:
             cpu: 100m
             memory: 128Mi
           limits:
             memory: 512Mi
+      volumes:
+        - name: signing-key
+          secret:
+            secretName: model-signing-key

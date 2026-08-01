@@ -184,6 +184,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "cryptography" },
     { name = "dvc", extra = ["s3"] },
 ]
 
@@ -196,7 +197,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "dvc", extras = ["s3"], specifier = ">=3.67.1" }]
+dev = [
+    { name = "cryptography", specifier = ">=49.0.0" },
+    { name = "dvc", extras = ["s3"], specifier = ">=3.67.1" },
+]
 
 [[package]]
 name = "amqp"

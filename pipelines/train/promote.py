@@ -9,10 +9,45 @@ Usage: python promote.py [--run-id ID] [--min-improvement 0]
 """
 
 import argparse
+import hashlib
+import json
+import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 from mlflow import MlflowClient, register_model
+
+
+def dir_digest(path: str) -> str:
+    """Deterministic digest of a model directory: sha256 over the sorted
+    list of relative-path:file-sha256 lines."""
+    lines = []
+    for f in sorted(Path(path).rglob("*")):
+        if f.is_file():
+            lines.append(f"{f.relative_to(path)}:{hashlib.sha256(f.read_bytes()).hexdigest()}")
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
+
+
+def sign_model(version: str) -> None:
+    """Sign the registered model's digest; serving verifies before load."""
+    import mlflow.artifacts
+    import s3fs
+    from cryptography.hazmat.primitives import serialization
+
+    local = mlflow.artifacts.download_artifacts(f"models:/{MODEL}/{version}")
+    digest = dir_digest(local)
+    key = serialization.load_pem_private_key(
+        Path(os.environ["MODEL_SIGNING_KEY_PATH"]).read_bytes(), password=None
+    )
+    sig = key.sign(digest.encode()).hex()
+    fs = s3fs.S3FileSystem(
+        key=os.environ["AWS_ACCESS_KEY_ID"], secret=os.environ["AWS_SECRET_ACCESS_KEY"],
+        client_kwargs={"endpoint_url": os.environ["MLFLOW_S3_ENDPOINT_URL"]},
+    )
+    with fs.open(f"akili-mlflow/signatures/{MODEL}-v{version}.json", "w") as f:
+        json.dump({"digest": digest, "signature": sig}, f)
+    print(f"model v{version} signed ({digest[:12]}...)")
 
 EXPERIMENT = "price-model"
 MODEL = "price-model"
@@ -78,6 +113,7 @@ def main() -> None:
         sys.exit(1)
 
     version = register_model(f"runs:/{run.info.run_id}/model", MODEL)
+    sign_model(version.version)
     client.set_registered_model_alias(MODEL, "champion", version.version)
     client.update_model_version(
         MODEL, version.version,
