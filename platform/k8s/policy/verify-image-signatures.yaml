@@ -1,0 +1,28 @@
+# Any ghcr image of ours must carry a keyless cosign signature from this
+# repo's CI running on main. Unsigned or foreign-signed images are refused
+# at admission in the namespaces that run our workloads.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signatures
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: require-ci-signature
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["akili-prod", "argo"]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/maicymxtim/*"
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subject: https://github.com/MaicyMxtim/akili/.github/workflows/*@refs/heads/main
+                    rekor:
+                      url: https://rekor.sigstore.dev
