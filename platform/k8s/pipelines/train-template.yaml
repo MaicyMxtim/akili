@@ -28,8 +28,8 @@ spec:
           - name: learning-rate
           - name: num-leaves
       container:
-        image: akili-train:0.3.2
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/maicymxtim/akili-train:main
+        imagePullPolicy: Always
         command: ["python", "train.py"]
         args:
           - --train-data

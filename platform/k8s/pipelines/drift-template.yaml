@@ -19,8 +19,8 @@ spec:
           - name: reference
           - name: current
       container:
-        image: akili-drift:0.1.0
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/maicymxtim/akili-drift:main
+        imagePullPolicy: Always
         command: ["python", "drift_check.py"]
         args:
           - "{{inputs.parameters.reference}}"

@@ -19,8 +19,8 @@ spec:
           - name: run-id
           - name: min-improvement
       container:
-        image: akili-train:0.2.0
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/maicymxtim/akili-train:main
+        imagePullPolicy: Always
         command: ["python", "promote.py"]
         args:
           - --run-id

@@ -27,6 +27,8 @@ spec:
       labels:
         app: serve
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
@@ -34,8 +36,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: serve
-          image: akili-serve:0.1.0
-          imagePullPolicy: IfNotPresent
+          image: ghcr.io/maicymxtim/akili-serve:main
+          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

@@ -21,8 +21,8 @@ spec:
         parameters:
           - name: source
       container:
-        image: akili-ingest:0.1.2
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/maicymxtim/akili-ingest:main
+        imagePullPolicy: Always
         # emissary executor cannot read entrypoints of locally-imported
         # images, so the command must be explicit
         command: ["python", "ingest.py"]

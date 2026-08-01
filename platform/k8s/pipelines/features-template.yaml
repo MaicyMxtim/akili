@@ -20,8 +20,8 @@ spec:
             template: materialize
     - name: build-features
       container:
-        image: akili-feast:0.1.0
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/maicymxtim/akili-feast:main
+        imagePullPolicy: Always
         command: ["python", "/app/build_features.py"]
         args:
           - s3://akili-data/raw/pp/2025-12/pp.parquet
@@ -49,8 +49,8 @@ spec:
             memory: 2Gi
     - name: materialize
       container:
-        image: akili-feast:0.1.0
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/maicymxtim/akili-feast:main
+        imagePullPolicy: Always
         command: ["sh", "-c"]
         args:
           - cd /app/feature_repo && feast apply && feast materialize-incremental $(date -u +%Y-%m-%dT%H:%M:%S)
