@@ -116,8 +116,17 @@ def area_features(outward: str) -> dict:
 
 @app.get("/healthz")
 def healthz() -> dict:
+    """Exercises the real prediction path: a model that loads but cannot
+    predict must not report healthy (learned the hard way in Phase 11)."""
     if model is None:
         raise HTTPException(status_code=503, detail="model not loaded")
+    try:
+        predict(PredictRequest(
+            postcode="BS3 4NQ", property_type="T", town="BRISTOL",
+            district="BRISTOL", county="BRISTOL",
+        ))
+    except Exception as err:
+        raise HTTPException(status_code=503, detail=f"prediction path broken: {err}")
     return {"status": "ok", "model": MODEL_URI}
 
 
@@ -141,6 +150,9 @@ def predict(req: PredictRequest) -> dict:
     }])
     for col in CATEGORICAL:
         row[col] = row[col].astype("category")
+    # send exactly what this model was trained on: champions may or may not
+    # include the area features, and a mismatch is a hard LightGBM error
+    row = row[model.feature_name()]
     import numpy as np
     price = float(np.exp(model.predict(row)[0]))
     return {"predicted_price": round(price, -2)}
