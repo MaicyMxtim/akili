@@ -1,0 +1,69 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pipelines/**"
+      - "services/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - { name: akili-ingest, context: pipelines/ingest }
+          - { name: akili-train, context: pipelines/train }
+          - { name: akili-drift, context: pipelines/drift }
+          - { name: akili-feast, context: pipelines/features }
+          - { name: akili-serve, context: services/serve }
+    steps:
+      - uses: actions/checkout@v4
+      - name: prepare feature repo copies
+        run: |
+          cp -r pipelines/features/feature_repo pipelines/train/feature_repo || true
+          cp -r pipelines/features/feature_repo services/serve/feature_repo || true
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        id: push
+        with:
+          context: ${{ matrix.image.context }}
+          push: true
+          tags: ghcr.io/maicymxtim/${{ matrix.image.name }}:${{ github.sha }}
+      - uses: sigstore/cosign-installer@v3
+      - name: sign image (keyless, github oidc)
+        run: cosign sign --yes ghcr.io/maicymxtim/${{ matrix.image.name }}@${{ steps.push.outputs.digest }}
+      - name: trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/maicymxtim/${{ matrix.image.name }}:${{ github.sha }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: sbom
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/maicymxtim/${{ matrix.image.name }}:${{ github.sha }}
+          artifact-name: ${{ matrix.image.name }}-sbom.spdx.json
