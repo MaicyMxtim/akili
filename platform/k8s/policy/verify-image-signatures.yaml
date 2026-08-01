@@ -19,6 +19,9 @@ spec:
       verifyImages:
         - imageReferences:
             - "ghcr.io/maicymxtim/*"
+          imageRegistryCredentials:
+            secrets:
+              - ghcr-pull
           attestors:
             - entries:
                 - keyless:
