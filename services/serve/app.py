@@ -100,12 +100,22 @@ def load_model() -> None:
     log.info("feature store connected")
 
 
+def model_features() -> list:
+    """Feature list of the loaded model. MLflow returns the sklearn wrapper
+    (feature_name_); a raw Booster exposes feature_name()."""
+    if hasattr(model, "feature_name_"):
+        return list(model.feature_name_)
+    if hasattr(model, "booster_"):
+        return list(model.booster_.feature_name())
+    return list(model.feature_name())
+
+
 def area_features(outward: str) -> dict:
     """Latest area stats from the online store; missing areas predict
     without them (LightGBM handles NaN). Skipped entirely when the loaded
     champion does not use these features, so a broken online store cannot
     slow down a model that never needed it."""
-    if not any(f in model.feature_name() for f in AREA_FEATURES):
+    if not any(f in model_features() for f in AREA_FEATURES):
         return {}
     try:
         vals = feature_store.get_online_features(
@@ -156,7 +166,7 @@ def predict(req: PredictRequest) -> dict:
         row[col] = row[col].astype("category")
     # send exactly what this model was trained on: champions may or may not
     # include the area features, and a mismatch is a hard LightGBM error
-    row = row[model.feature_name()]
+    row = row[model_features()]
     import numpy as np
     price = float(np.exp(model.predict(row)[0]))
     return {"predicted_price": round(price, -2)}
