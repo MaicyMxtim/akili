@@ -8,7 +8,11 @@ metadata:
 spec:
   validationFailureAction: Enforce
   webhookTimeoutSeconds: 30
-  failurePolicy: Fail
+  # fail-open by deliberate choice: incident 4 showed a fail-closed webhook
+  # whose engine OOMs takes every admission in the cluster with it. Signed
+  # images are still refused whenever the engine is running; availability of
+  # the platform no longer depends on the policy engine staying up.
+  failurePolicy: Ignore
   rules:
     - name: require-ci-signature
       match:
