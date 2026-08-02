@@ -70,6 +70,16 @@ spec:
             - name: signing-pub
               mountPath: /etc/model-signing
               readOnly: true
+          # startup: downloading and verifying the model takes far longer
+          # than a request. Without this, liveness kills the container
+          # mid-boot and it never starts (5 minutes of grace).
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            periodSeconds: 5
+            failureThreshold: 60
+            timeoutSeconds: 10
           # the probe now runs a real prediction, so it needs more than the
           # 1s default timeout
           readinessProbe:
