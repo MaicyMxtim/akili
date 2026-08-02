@@ -102,7 +102,11 @@ def load_model() -> None:
 
 def area_features(outward: str) -> dict:
     """Latest area stats from the online store; missing areas predict
-    without them (LightGBM handles NaN)."""
+    without them (LightGBM handles NaN). Skipped entirely when the loaded
+    champion does not use these features, so a broken online store cannot
+    slow down a model that never needed it."""
+    if not any(f in model.feature_name() for f in AREA_FEATURES):
+        return {}
     try:
         vals = feature_store.get_online_features(
             features=[f"area_price_stats:{f}" for f in AREA_FEATURES],

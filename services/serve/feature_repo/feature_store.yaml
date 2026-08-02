@@ -3,7 +3,9 @@ provider: local
 registry: /tmp/feast/registry.db
 online_store:
   type: redis
-  connection_string: ${FEAST_REDIS_HOST}:6379
+  # feast does not expand env vars in this file, so the cluster DNS name is
+  # written directly. Local runs override with FEAST_REPO_CONNECTION.
+  connection_string: redis.akili-prod.svc:6379
 offline_store:
   type: file
 entity_key_serialization_version: 3
