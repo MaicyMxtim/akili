@@ -23,7 +23,7 @@ Full plan and phase list: [PROJECT-PLAN.md](PROJECT-PLAN.md). Cost analysis: [do
 | 8 | Drift and model monitoring | done |
 | 9 | The closed loop | done |
 | 10 | Supply chain for models | done |
-| 11 | Reliability and chaos | in progress |
+| 11 | Reliability and chaos | done |
 | 12 | Economics and write-up | done |
 
 ## What is proven, not just built
