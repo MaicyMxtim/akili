@@ -13,7 +13,7 @@ baseline: data/pp-2025.csv
 # Multi-node scheduling, drains and PDBs only need multiple agents.
 .PHONY: cluster
 cluster:
-	k3d cluster create akili --servers 1 --agents 4 \
+	k3d cluster create akili --servers 1 --agents 2 \
 		--k3s-arg "--disable=traefik@server:*" \
 		--wait
 
