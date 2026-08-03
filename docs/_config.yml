@@ -1,3 +1,3 @@
 title: Akili Platform
-description: An MLOps platform — Kubernetes, GitOps, validated data pipelines, experiment tracking, a promotion gate, progressive delivery, drift monitoring and a signed supply chain for models.
-theme: jekyll-theme-cayman
+description: An MLOps platform on Kubernetes. Data pipelines, model training, a promotion gate, canary deployment, drift monitoring and signed artifacts.
+theme: jekyll-theme-minimal

@@ -1,103 +1,113 @@
-# Akili Platform Walkthrough
+# Walkthrough
 
-A guided tour of what the Akili Platform is, how it is built, and where each part lives. For the underlying concepts and a phase-by-phase rebuild, see `complete-guide.md`. For decisions, incidents and cost, see `runbooks/`, `runbooks/postmortems/` and `docs/unit-economics.md` in the repository.
+How the Akili platform is put together, and what happens when it runs.
 
----
+## The workload
 
-## Overview
+The model predicts the sale price of a UK residential property. It is trained on HM Land Registry Price Paid Data, roughly 780,000 sales, using LightGBM. The inputs are property type, tenure, location and month.
 
-The Akili Platform runs a machine learning workload as a production-grade internal platform. It takes a real dataset — around 780,000 UK residential property sales published by HM Land Registry — and builds the infrastructure that an ML platform or MLOps team would run around it: a Kubernetes platform delivered by GitOps, validated data pipelines, experiment tracking and a model registry, an automated promotion gate, progressive delivery with automatic rollback, a feature store, drift monitoring, an enforced secure supply chain covering both containers and model artifacts, reliability evidence, and published unit economics.
+It reaches £93,229 mean absolute error. That is close to the limit of what this data supports, because the public records contain no floor area and no condition. The model is kept simple on purpose so that the platform is the interesting part.
 
-It is the counterpart to the Tamani Platform. Tamani covers consuming AI through a gateway and agents; Akili covers producing and operating models. The two together span both halves of AI infrastructure work.
+## The cluster
 
-Everything runs on a three-node virtual cluster on a laptop, at no cost.
+Three Kubernetes nodes run as containers on a laptop, using k3d. One node runs the control plane and two run workloads. Nothing is installed by hand. Argo CD reads the repository and makes the cluster match it, so anything deleted by accident is put back within seconds.
 
-## Local endpoints
+The whole platform was rebuilt from the repository three times during development.
 
-Nothing is exposed publicly. Each interface is reached by port-forward.
+## Storage and data
 
-- **Prediction API:** `kubectl -n akili-prod port-forward svc/serve 8000:80` → http://localhost:8000/docs
-- **Argo CD:** `kubectl -n argocd port-forward svc/argocd-server 8080:80`
-- **MLflow:** `kubectl -n mlflow port-forward svc/mlflow 5000:80`
-- **Argo Workflows:** `kubectl -n argo port-forward svc/argo-workflows-server 2746:2746`
-- **Grafana:** `kubectl -n monitoring port-forward svc/monitoring-grafana 3000:80`
-- **MinIO console:** `kubectl -n minio port-forward svc/minio-console 9001:9001`
+MinIO provides object storage inside the cluster and behaves like S3. It holds the raw sales files as parquet, the computed features, the trained model files, and the signatures for those models.
 
-The cluster runs on eight shared CPU cores. Under a heavy rollout it can saturate, which is documented behaviour rather than a fault (see `runbooks/postmortems/`).
+Incoming data is checked before it is stored. A schema describes what a valid file looks like: column types, allowed categories, sensible bounds, and a minimum row count. A file that fails is rejected with a report naming every row and column at fault, and nothing downstream ever sees it.
 
-## Architecture
+The bounds describe corruption rather than business rules. Real Land Registry data contains £1 transfers and a £793 million portfolio sale. Both were rejected by earlier bounds that were too opinionated.
 
-The system is organised in tiers.
+## Pipelines
 
-- **Platform** — k3s in Docker (k3d), one server and two agents, reconciled from Git by Argo CD, observed by Prometheus, Grafana and Loki, with admission policy enforced by Kyverno.
-- **Data** — MinIO provides S3-compatible object storage for raw sales data, computed features, model artifacts and signatures; DVC versions local datasets against the same store; a bundled Postgres backs the tracking server.
-- **Pipeline** — Argo Workflows runs ingest, feature refresh, training, promotion and drift checks, both on schedule and on demand.
-- **Modelling** — LightGBM trains against versioned parquet; MLflow records every run and owns the registry, where a `champion` alias names the model in production.
-- **Feature** — Feast defines the features once, serving history from parquet for training and current values from Redis for inference.
-- **Serving** — a FastAPI service loads the champion at startup, verifies its signature, and answers predictions; Argo Rollouts fronts it with a canary gated on live error rate.
-- **Supply chain** — GitHub Actions builds, signs, scans and attests every image; Kyverno refuses unsigned images at admission; models are signed at promotion and verified before a pod will serve them.
+Argo Workflows runs the jobs. Each job is a container and each pipeline is a sequence of them. There are five: ingest, feature refresh, training, promotion and drift checking. A sixth chains them into a single run for month end.
+
+Every job is parameterised, so the same training definition runs one model or a sweep of three in parallel across the nodes.
+
+## Training and tracking
+
+MLflow records every training run: the parameters, the data it read, the scores, and the model file. Two runs of the same configuration on the same data produce identical numbers, which is how reproducibility is verified rather than assumed.
+
+MLflow also holds the registry. One name, `champion`, points at whichever version is live. Training moves that pointer and serving reads it. Neither needs to know anything else about the other.
+
+## The promotion gate
+
+A newly trained model does not go live because it exists. It goes live because it is better.
+
+The gate reads the new model's score and the champion's score on the same held out data. If the new one wins, it is registered, signed, and the `champion` name is moved. If it does not win, the gate stops, tags the run as refused, and leaves production alone.
+
+This was tested with a deliberately bad model of 20 trees, which was refused. It was tested again with an identical retrain that tied rather than beat the champion, which was also refused.
+
+## Features
+
+Feast defines the features once and serves them to both training and inference. Training reads history from parquet. Inference reads current values from Redis.
+
+The important property is that training only sees what was knowable at the time. Asking for a postcode's area statistics at three different sale dates returns three different historical values, not today's value repeated. Without that, a model learns from the future and looks excellent in testing before failing in production.
+
+## Serving
+
+A FastAPI service loads the champion model when it starts. Before loading, it verifies the model's signature against a public key. If the signature is missing or wrong, the pod refuses to start.
+
+The health check makes a real prediction rather than only checking that a model object exists. That change came from an incident where every prediction failed for ninety minutes while the platform reported itself healthy.
+
+## Deployment
+
+New versions are not swapped in all at once. Argo Rollouts replaces half the pods, pauses, and queries live error rates before continuing. If the numbers are bad, or if progress stalls past a deadline, it destroys the new pods and leaves the old ones serving.
+
+This was proven by deploying a model version that cannot load. The new pod crashed, the rollout reversed itself, and a stream of prediction requests ran throughout without a single failure.
+
+## Monitoring
+
+Prometheus collects metrics every fifteen seconds, Grafana draws them, and Loki makes every pod's logs searchable in one place. Alerts are based on error budgets, so a fast burn pages someone and a slow burn opens a ticket. Each alert has a runbook written before the incident rather than during it.
+
+Evidently watches the data rather than the service. Each month it compares the newest records against the data the model trained on, and reports how far the distributions have moved.
+
+## Signatures
+
+GitHub Actions builds every container image, signs it, scans it for vulnerabilities and publishes a list of its contents. Kyverno checks those signatures when a pod is created, and refuses anything that does not carry one from this repository.
+
+Models get the same treatment. The promotion step signs the model files, and the serving pod verifies that signature before loading. This was tested by tampering with a stored signature. The pod refused to serve while its sibling carried on answering requests.
+
+## A month end run
+
+New data is published. The ingest job downloads and validates it, then writes parquet to storage. The drift job compares it against the training reference. The feature job recomputes area statistics and pushes current values to Redis. Training fits a new model and logs it. The gate compares it to the champion and either promotes it or stops. If it promoted, the last step restarts the service, which brings the new model in gradually behind the rollout checks.
+
+Nobody touches any of it.
+
+## Reliability
+
+Five failures were caused on purpose while traffic ran.
+
+Killing a serving pod cost nothing, 90 requests and no failures, because a second replica and a disruption budget cover it. Draining an entire node cost one request out of 90, in the moment between the pod stopping and the load balancer noticing. Removing the feature store cost nothing, because the current model does not use it and the code checks before calling. Removing MLflow cost nothing while everything was running, but no new pod could start, because startup needs the registry. Killing the tracking database cost nothing, and the registry came back intact.
+
+The MLflow result is the most useful one. That outage is invisible until something restarts, and then it is total.
 
 ## Repository layout
 
-- **`ml/`** — the Phase 0 baseline script, the simplest path from raw CSV to a scored model.
-- **`pipelines/`** — the containerised job code: `ingest` (download and validate), `features` (compute and materialise), `train` (fit, log, and the promotion gate), `drift` (compare distributions).
-- **`services/serve/`** — the prediction API.
-- **`platform/argocd/`** — the GitOps content: the root application and one Application per platform component.
-- **`platform/k8s/`** — the manifests those Applications point at: `tenancy` (namespaces, RBAC, network policy, quotas), `pipelines` (workflow templates and crons), `serving` (rollout, service, policies, SLOs, dashboard), `feast`, `policy`.
-- **`runbooks/`** — one file per alert, plus the postmortem and chaos archives.
-- **`docs/`** — unit economics.
+`ml/` holds the starting point, a script that goes from raw file to scored model.
 
-## Request paths
+`pipelines/` holds the job code: ingest, features, train and drift, each in its own container.
 
-**A prediction.** A client posts property attributes to the serving API. The service derives the postcode outward code and area, builds a single-row frame, projects it onto exactly the feature list the loaded model declares, and returns the exponentiated prediction. If the champion was trained with area features, it first reads them from Redis; if not, that lookup is skipped entirely.
+`services/serve/` holds the prediction API.
 
-**A month of new data.** The ingest workflow downloads the published file, validates it against a schema, and writes partitioned parquet to object storage. A drift check compares the new window against the training reference. The feature job recomputes area statistics and materialises them to Redis. Training fits a new model and logs it. The promotion gate compares it against the champion and either moves the alias or refuses. If it promoted, the final step restarts the rollout, which brings the new champion in through a canary.
+`platform/argocd/` holds one file per platform component, plus a root file pointing at the rest.
 
-**A deployment.** A commit lands on `main`. GitHub Actions builds the affected images, signs them keylessly with the workflow's own identity, scans them, and publishes SBOMs. Argo CD notices the repository has changed and applies the new manifests. Kyverno verifies the image signature before admitting any pod.
+`platform/k8s/` holds the manifests those components install: namespaces and permissions, pipeline definitions, the serving deployment, policies and alerts.
 
-## Component tour
+`runbooks/` holds one file per alert, plus the postmortems and the chaos results.
 
-**Argo CD** holds the cluster to the repository. Every component is an Application; a root Application defines the others, so adding a component means adding one file. Deleting a resource by hand gets it recreated within seconds.
+## Relevance to roles
 
-**Argo Workflows** runs the pipelines. Templates are parameterised and reference each other, so the month-end loop is a short file that chains templates rather than duplicating them.
+The whole project is MLOps and ML platform work.
 
-**MinIO** stores everything that is too big for Git: raw and processed data, model artifacts, feature parquet, drift reports, model signatures.
+The GitOps setup, tenancy, rollouts, admission policy and supply chain are platform and DevOps work.
 
-**MLflow** records runs and owns the registry. The `champion` alias is the contract between training and serving: training moves it, serving resolves it, and neither knows anything else about the other.
+The error budgets, alerts, runbooks, postmortems and chaos results are site reliability work.
 
-**Feast** defines the features once. Training reads history with a point-in-time join so no example sees information from after its own date; serving reads the current value from Redis.
+The validated ingestion, partitioned storage and scheduled pipelines are data engineering.
 
-**The serving API** loads the champion at startup, verifies the model signature against a public key, and refuses to become ready if verification fails or if a test prediction raises.
-
-**Argo Rollouts** replaces pods in stages rather than all at once, pausing to let an analysis query the live error rate before continuing, and aborting on failure or on a stalled deadline.
-
-**Kyverno** verifies at admission that any image from the project registry carries a signature from this repository's CI on `main`.
-
-**Prometheus, Grafana and Loki** collect metrics, draw them, and make every pod's logs searchable in one place.
-
-## Delivery
-
-Nothing is deployed by hand. A change to a manifest is a commit; Argo CD applies it. A change to service code is a commit; CI builds and signs an image, and the rollout picks it up.
-
-Promotion of a *model* is deliberately separate from deployment of *code*. A new champion changes nothing about the running image; it changes an alias in the registry, and the serving pods pick it up when they next restart. That separation is what lets the platform retrain on a schedule without touching the deployment pipeline.
-
-## Operations
-
-Alerts are defined as Prometheus rules with runbooks committed beside them: an availability burn-rate alert that pages on fast burn and tickets on slow burn, and a latency alert on the 95th percentile. Four incidents have their own postmortems, covering memory exhaustion, an upstream release with a process leak, a silent outage hidden by a shallow health check, and a fail-closed admission controller that deadlocked the cluster.
-
-The chaos archive records five deliberate failure experiments with measured results.
-
-## Measured results
-
-- **Model.** £93,229 mean absolute error, 18.07% median absolute percentage error, tested on a held-out month. A classical baseline and a larger-capacity variant were both measured; the area features from the feature store made the model slightly worse and are recorded as a negative result.
-- **Reliability.** Killing a serving pod: 90 requests, no failures. Draining a node: 89 of 90. Losing the feature store, the tracking server or the tracking database: no failures, though no pod can start while the registry is down.
-- **Supply chain.** An unverifiable image is refused at admission; a tampered model signature prevents a pod from serving while its sibling continues.
-- **Cost.** Nothing to run. The managed equivalent prices at roughly £650 to £700 per month, dominated by orchestration and observability rather than compute.
-
-## How it maps to roles
-
-- **MLOps or ML Platform Engineer** — the whole project.
-- **Platform or DevOps Engineer** — GitOps, tenancy, progressive delivery, admission policy, supply chain.
-- **SRE** — SLOs, burn-rate alerting, runbooks, postmortems, chaos evidence.
-- **Data Engineer** — schema-validated ingestion, partitioned storage, dataset versioning, scheduled pipelines.
-- **Data Scientist** — experiment tracking, an evaluation gate with a holdout, point-in-time correctness, drift detection, and an honest negative result.
+The experiment tracking, evaluation gate, point in time correctness, drift detection and the recorded negative result are data science.

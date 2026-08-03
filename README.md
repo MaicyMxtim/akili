@@ -26,28 +26,28 @@ Full plan and phase list: [PROJECT-PLAN.md](PROJECT-PLAN.md). Cost analysis: [do
 | 11 | Reliability and chaos | done |
 | 12 | Economics and write-up | done |
 
-## What is proven, not just built
+## Demonstrations
 
 Each phase ended with a demonstration rather than a claim:
 
-- **Self-healing GitOps** — a resource deleted by hand is restored from git within seconds; the entire platform has been rebuilt from the repository three times.
-- **Data validation** — a corrupted file is rejected with a per-row failure report and never reaches the dataset.
-- **Reproducibility** — the same data version and hyperparameters produce metrics identical to the decimal across separate runs.
-- **Promotion gate** — a deliberately weak model is trained, registered, and automatically refused promotion; the champion is untouched.
-- **Canary rollback** — an unloadable model version is deployed on purpose; the canary fails, the rollout aborts itself, and prediction traffic never stops flowing from the stable pods.
-- **Feature consistency** — identical values offline and online for the same entity, and point-in-time joins returning different historically correct values for the same postcode at different dates.
-- **Drift detection** — real month-on-month data passes; a synthetic set with tripled prices trips the alert.
-- **The closed loop** — the full chain run twice with no human involvement: once ending in a correct refusal, once in a promotion that deployed a new champion through the canary.
-- **Supply chain** — an unverifiable image is denied at admission; a tampered model signature stops the serving pod from starting while its sibling keeps answering requests.
+- **Self-healing GitOps**. a resource deleted by hand is restored from git within seconds; the entire platform has been rebuilt from the repository three times.
+- **Data validation**. a corrupted file is rejected with a per-row failure report and never reaches the dataset.
+- **Reproducibility**. the same data version and hyperparameters produce metrics identical to the decimal across separate runs.
+- **Promotion gate**. a deliberately weak model is trained, registered, and automatically refused promotion; the champion is untouched.
+- **Canary rollback**. an unloadable model version is deployed on purpose; the canary fails, the rollout aborts itself, and prediction traffic never stops flowing from the stable pods.
+- **Feature consistency**. identical values offline and online for the same entity, and point-in-time joins returning different historically correct values for the same postcode at different dates.
+- **Drift detection**. real month-on-month data passes; a synthetic set with tripled prices trips the alert.
+- **The closed loop**. the full chain run twice with no human involvement: once ending in a correct refusal, once in a promotion that deployed a new champion through the canary.
+- **Supply chain**. an unverifiable image is denied at admission; a tampered model signature stops the serving pod from starting while its sibling keeps answering requests.
 
-## What went wrong, and what it taught
+## Incidents
 
 Four incidents, each with a postmortem in [runbooks/postmortems](runbooks/postmortems):
 
-1. **Docker VM out of memory** — the kernel killed two control-plane nodes during a rollout. HA etcd survived it.
-2. **MLflow process leak and a migration race** — an upstream release leaked workers until any memory limit was exhausted; downgrading then hit a database migration race caused by a stuck rollout's old pods.
-3. **Silent prediction outage** — every prediction failed for ninety minutes while the platform reported healthy, because the health check only verified the model object existed and the canary analysis saw no errors on zero traffic. Health checks now perform a real prediction.
-4. **Admission controller deadlock** — a fail-closed policy engine ran out of memory and blocked every pod creation in the cluster, including the ones needed to fix it. The policy is now fail-open by deliberate choice.
+1. **Docker VM out of memory**. the kernel killed two control-plane nodes during a rollout. HA etcd survived it.
+2. **MLflow process leak and a migration race**. an upstream release leaked workers until any memory limit was exhausted; downgrading then hit a database migration race caused by a stuck rollout's old pods.
+3. **Silent prediction outage**. every prediction failed for ninety minutes while the platform reported healthy, because the health check only verified the model object existed and the canary analysis saw no errors on zero traffic. Health checks now perform a real prediction.
+4. **Admission controller deadlock**. a fail-closed policy engine ran out of memory and blocked every pod creation in the cluster, including the ones needed to fix it. The policy is now fail-open by deliberate choice.
 
 A measured negative result worth recording: the rolling area-price features from the feature store made the model slightly worse (£95,602 against £93,229 MAE), because at this data volume the postcode categorical already encodes area price level. The feature path remains behind a flag.
 
@@ -60,7 +60,7 @@ make baseline   # download 2025 data and train the baseline model
 make cluster    # create the k3d cluster (1 server, 2 agents)
 ```
 
-## Rebuilding the platform from git
+## Rebuilding from git
 
 After `make cluster`, a handful of secrets bootstrap the cluster; everything else installs itself from this repository. No credential is committed.
 
