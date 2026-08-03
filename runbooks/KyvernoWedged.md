@@ -9,7 +9,7 @@ kubectl -n kyverno get pods
 kubectl -n kyverno get pod <admission-controller-pod> -o jsonpath='{.status.containerStatuses[0].lastState.terminated.reason}'
 ```
 
-Restarts climbing, or `OOMKilled`, means the policy engine is down. Because its webhooks are fail-closed, every guarded admission is being refused.
+Restarts climbing, or an `OOMKilled` reason, means the policy engine is down. Because its webhooks are fail-closed, every guarded admission is being refused.
 
 ## Break glass
 

@@ -4,9 +4,9 @@ The prediction API is returning 5xx at a rate that eats the 99.5% availability b
 
 ## First checks
 
-1. `kubectl -n akili-prod get pods -l app=serve` — crashlooping or OOMKilled pods?
-2. `kubectl -n akili-prod logs -l app=serve --tail 50` — model load failures usually mean MLflow or MinIO is unreachable, or the champion alias points at a broken version.
-3. `kubectl -n akili-prod get rollout serve` — is a canary mid-rollout? An aborted rollout with a failing canary can leave error spikes in the window.
+1. `kubectl -n akili-prod get pods -l app=serve`. Crashlooping or OOMKilled pods?
+2. `kubectl -n akili-prod logs -l app=serve --tail 50`. Model load failures usually mean MLflow or MinIO is unreachable, or the champion alias points at a broken version.
+3. `kubectl -n akili-prod get rollout serve`. Is a canary mid-rollout? An aborted rollout with a failing canary can leave error spikes in the window.
 4. Check MLflow and MinIO health: `kubectl -n mlflow get pods`, `kubectl -n minio get pods`.
 
 ## Common causes seen on this platform
@@ -17,4 +17,4 @@ The prediction API is returning 5xx at a rate that eats the 99.5% availability b
 
 ## If the cause is a bad model version
 
-The canary analysis should have caught it. If it reached stable anyway: `kubectl argo rollouts undo serve -n akili-prod`, then investigate why analysis passed.
+The canary analysis should have caught it. If it reached stable anyway: `kubectl argo rollouts undo serve -n akili-prod`. Then investigate why analysis passed.

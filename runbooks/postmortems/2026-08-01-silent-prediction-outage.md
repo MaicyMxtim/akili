@@ -18,7 +18,7 @@ Detection came from the first load test, which reported 100% request failure at 
 
 ## Fix
 
-- Serving now projects each request onto `model.feature_name()`, so it sends exactly the features the loaded champion declares. This makes the service tolerant of champions trained with or without the area features.
+- Serving now projects each request onto the model's own feature list, so it sends exactly the features the loaded champion declares. This makes the service tolerant of champions trained with or without the area features.
 - /healthz now performs a real prediction and returns 503 if it raises. A model that cannot predict can no longer report ready, so a bad version fails its readiness probe and the canary aborts on its own.
 
 ## Lessons

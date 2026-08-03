@@ -78,7 +78,7 @@ def main() -> None:
     p.add_argument("--n-estimators", type=int, default=500)
     p.add_argument("--learning-rate", type=float, default=0.05)
     p.add_argument("--num-leaves", type=int, default=63)
-    # measured 2026-07-31: area features WORSEN MAE (95.6k vs 93.2k) — the
+    # measured 2026-07-31: area features WORSEN MAE (95.6k vs 93.2k), the
     # outward-code categorical already carries area price level at this data
     # volume. Kept available for future data regimes.
     p.add_argument("--use-area-features", default="false")

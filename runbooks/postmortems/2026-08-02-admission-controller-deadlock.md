@@ -6,7 +6,7 @@ Date: 2026-08-02. Duration: about 40 minutes of cluster-wide admission failure d
 
 While repeatedly redeploying the serving component to fix a prediction bug, pods crashlooped. Every pod creation triggers Kyverno's image-signature verification, which fetches signatures from the registry and consults the public transparency log. A crashloop storm therefore became a verification storm.
 
-Kyverno's admission controller, limited to 384Mi, was OOMKilled repeatedly. Its webhooks are configured `failurePolicy: Fail`, meaning "if the policy engine cannot answer, refuse the request". With the engine dead, that rule applied to every pod creation in the guarded namespaces, and API requests hung for the webhook's 30 second timeout before failing.
+Kyverno's admission controller, limited to 384Mi, was OOMKilled repeatedly. Its webhooks are configured with `failurePolicy: Fail`, which means "if the policy engine cannot answer, refuse the request". With the engine dead, that rule applied to every pod creation in the guarded namespaces, and API requests hung for the webhook's 30 second timeout before failing.
 
 The deadlock: fixing Kyverno required API calls, and the API was being blocked by Kyverno's own broken webhooks.
 

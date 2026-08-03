@@ -1,4 +1,4 @@
-# Akili Platform — Project Plan
+# Akili Platform Project Plan
 
 Akili (Swahili for "intelligence") is an end-to-end MLOps platform. It runs on a virtual multi-node Kubernetes cluster on the laptop, so it costs nothing.
 
@@ -6,7 +6,7 @@ It is the second portfolio project after Tamani. Tamani covered using AI through
 
 The name is a placeholder. Rename the folder and this doc if you want something else.
 
-## What it does, in one paragraph
+## Summary
 
 Every month the UK Land Registry publishes new house sale data. When that lands, the platform ingests it, validates it, retrains a price prediction model, compares the new model against the current one, promotes it only if it scores better, and rolls it out gradually with automatic rollback if it misbehaves. Drift monitoring can also trigger the same pipeline between monthly drops. The whole loop runs without anyone touching it, and that end-to-end run is the main demo.
 
@@ -60,31 +60,31 @@ If a physical homelab happens some day, everything moves across unchanged becaus
 
 Each phase ends with something you can demonstrate, same as Tamani.
 
-**Phase 0 — Baseline model on the laptop.** Set up the repo and Python tooling, download a slice of Price Paid data, train a LightGBM baseline, pick the evaluation metrics (MAE and median absolute percentage error on a time-based holdout). Proof: one command takes raw CSV to a scored model.
+**Phase 0. Baseline model on the laptop.** Set up the repo and Python tooling, download a slice of Price Paid data, train a LightGBM baseline, pick the evaluation metrics (MAE and median absolute percentage error on a time-based holdout). Proof: one command takes raw CSV to a scored model.
 
-**Phase 1 — Cluster bring-up.** k3d cluster with 3 servers (embedded etcd) and 2 agents, Docker Desktop resource caps, ingress-nginx, cert-manager, MinIO. Proof: `docker stop` one server node and the cluster keeps serving while etcd elects a new leader.
+**Phase 1. Cluster bring-up.** k3d cluster with 3 servers (embedded etcd) and 2 agents, Docker Desktop resource caps, ingress-nginx, cert-manager, MinIO. Proof: `docker stop` one server node and the cluster keeps serving while etcd elects a new leader.
 
-**Phase 2 — GitOps and platform baseline.** Argo CD app-of-apps, namespaces with PSA, RBAC, default-deny network policies, quotas, kube-prometheus-stack, Loki. This overlaps the August re-learn material on purpose: doing it here is re-learn practice on fresh infrastructure. Proof: the full platform can be rebuilt from the git repo alone.
+**Phase 2. GitOps and platform baseline.** Argo CD app-of-apps, namespaces with PSA, RBAC, default-deny network policies, quotas, kube-prometheus-stack, Loki. This overlaps the August re-learn material on purpose: doing it here is re-learn practice on fresh infrastructure. Proof: the full platform can be rebuilt from the git repo alone.
 
-**Phase 3 — Data pipeline.** Install Argo Workflows. Monthly ingest workflow: download the Price Paid update, validate it with pandera (schema, value ranges, row counts, duplicate checks), write partitioned parquet to MinIO, version it with DVC. Proof: a deliberately corrupted file gets rejected with a clear failure report and never reaches the dataset.
+**Phase 3. Data pipeline.** Install Argo Workflows. Monthly ingest workflow: download the Price Paid update, validate it with pandera (schema, value ranges, row counts, duplicate checks), write partitioned parquet to MinIO, version it with DVC. Proof: a deliberately corrupted file gets rejected with a clear failure report and never reaches the dataset.
 
-**Phase 4 — Experiment tracking and training pipeline.** MLflow server on the cluster. Training as an Argo Workflow: pull a versioned dataset, train, log params, metrics and artifacts. Optuna sweeps fan out as workflow steps across nodes. Proof: two sweep runs compared in the MLflow UI, and any past run reproducible from its logged dataset version and params.
+**Phase 4. Experiment tracking and training pipeline.** MLflow server on the cluster. Training as an Argo Workflow: pull a versioned dataset, train, log params, metrics and artifacts. Optuna sweeps fan out as workflow steps across nodes. Proof: two sweep runs compared in the MLflow UI, and any past run reproducible from its logged dataset version and params.
 
-**Phase 5 — Registry and promotion gate.** MLflow model registry with a champion/challenger setup. An eval gate in CI, like Tamani's: a challenger gets registered but only promoted if it beats the champion on the holdout by more than a set tolerance. Generate a model card for each promoted version. Proof: train a deliberately worse model and watch it get refused promotion automatically.
+**Phase 5. Registry and promotion gate.** MLflow model registry with a champion/challenger setup. An eval gate in CI, like Tamani's: a challenger gets registered but only promoted if it beats the champion on the holdout by more than a set tolerance. Generate a model card for each promoted version. Proof: train a deliberately worse model and watch it get refused promotion automatically.
 
-**Phase 6 — Serving.** A FastAPI inference service that loads the champion model from the registry, with request logging, Prometheus metrics, and the hardened deployment patterns from Tamani (probes, limits, netpol, PDB). Then move to KServe RawDeployment. Put Argo Rollouts canary in front: a new model version takes 10% of traffic, and rolls back automatically if error rate or latency regresses. Proof: a bad model version gets canaried, fails the analysis, and rolls back with no human involved.
+**Phase 6. Serving.** A FastAPI inference service that loads the champion model from the registry, with request logging, Prometheus metrics, and the hardened deployment patterns from Tamani (probes, limits, netpol, PDB). Then move to KServe RawDeployment. Put Argo Rollouts canary in front: a new model version takes 10% of traffic, and rolls back automatically if error rate or latency regresses. Proof: a bad model version gets canaried, fails the analysis, and rolls back with no human involved.
 
-**Phase 7 — Feature store.** Feast with parquet as the offline store and Redis as the online store. Training reads point-in-time-correct features offline; serving reads the same features online. Proof: a test showing identical feature values for the same entity on both paths.
+**Phase 7. Feature store.** Feast with parquet as the offline store and Redis as the online store. Training reads point-in-time-correct features offline; serving reads the same features online. Proof: a test showing identical feature values for the same entity on both paths.
 
-**Phase 8 — Drift and model monitoring.** A scheduled Evidently workflow compares recent inputs and predictions against the training reference: data drift, prediction drift, and (once the next monthly file arrives) real error against actual sale prices. Grafana dashboard for model health next to service health, with SLOs and burn-rate alerts on the serving path. Proof: feed old reference data against current inputs and watch drift alerts fire.
+**Phase 8. Drift and model monitoring.** A scheduled Evidently workflow compares recent inputs and predictions against the training reference: data drift, prediction drift, and (once the next monthly file arrives) real error against actual sale prices. Grafana dashboard for model health next to service health, with SLOs and burn-rate alerts on the serving path. Proof: feed old reference data against current inputs and watch drift alerts fire.
 
-**Phase 9 — The closed loop.** Wire it all together: monthly data drop triggers ingest, validation, retrain, eval gate, promotion, canary rollout. A drift alert can trigger the same pipeline between drops. Proof: simulate a month-end run end to end with no human touches, then show the audit trail (data version, run, model version, deployment) for the model now serving.
+**Phase 9. The closed loop.** Wire it all together: monthly data drop triggers ingest, validation, retrain, eval gate, promotion, canary rollout. A drift alert can trigger the same pipeline between drops. Proof: simulate a month-end run end to end with no human touches, then show the audit trail (data version, run, model version, deployment) for the model now serving.
 
-**Phase 10 — Supply chain for models.** Port the Tamani CI security stack, then extend it: sign model artifacts with cosign, verify the signature before the serving pod loads a model, SBOM and scan the training and serving images, secrets via sealed-secrets or ESO pointing at a local Vault. Proof: an unsigned model file is refused at load time.
+**Phase 10. Supply chain for models.** Port the Tamani CI security stack, then extend it: sign model artifacts with cosign, verify the signature before the serving pod loads a model, SBOM and scan the training and serving images, secrets via sealed-secrets or ESO pointing at a local Vault. Proof: an unsigned model file is refused at load time.
 
-**Phase 11 — Reliability and chaos, multi-node edition.** Everything the single Tamani node could not do: drain a node under load, kill the MLflow Postgres and check recovery, kill Redis and check serving degrades sensibly, run proper k6 load tests to find the real saturation point. Write the experiments up in runbooks like the Tamani chaos log. Proof: documented experiments with measured numbers.
+**Phase 11. Reliability and chaos, multi-node edition.** Everything the single Tamani node could not do: drain a node under load, kill the MLflow Postgres and check recovery, kill Redis and check serving degrades sensibly, run proper k6 load tests to find the real saturation point. Write the experiments up in runbooks like the Tamani chaos log. Proof: documented experiments with measured numbers.
 
-**Phase 12 — Economics and write-up.** A unit economics doc: what this platform would cost on managed services (a SageMaker or Vertex endpoint, managed MLflow, managed Airflow) against the £0 it actually costs, and at what scale each managed piece becomes worth paying for. README with an architecture diagram and a status table. A learning doc in the style of the-story-so-far.md, written as you go.
+**Phase 12. Economics and write-up.** A unit economics doc: what this platform would cost on managed services (a SageMaker or Vertex endpoint, managed MLflow, managed Airflow) against the £0 it actually costs, and at what scale each managed piece becomes worth paying for. README with an architecture diagram and a status table. A learning doc in the style of the-story-so-far.md, written as you go.
 
 ## Running it alongside the August re-learn
 
