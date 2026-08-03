@@ -49,7 +49,7 @@ Four incidents, each with a postmortem in [runbooks/postmortems](runbooks/postmo
 3. **Silent prediction outage**. every prediction failed for ninety minutes while the platform reported healthy, because the health check only verified the model object existed and the canary analysis saw no errors on zero traffic. Health checks now perform a real prediction.
 4. **Admission controller deadlock**. a fail-closed policy engine ran out of memory and blocked every pod creation in the cluster, including the ones needed to fix it. The policy is now fail-open by deliberate choice.
 
-A measured negative result worth recording: the rolling area-price features from the feature store made the model slightly worse (£95,602 against £93,229 MAE), because at this data volume the postcode categorical already encodes area price level. The feature path remains behind a flag.
+One measured negative result: the rolling area-price features from the feature store made the model slightly worse (£95,602 against £93,229 MAE), because at this data volume the postcode categorical already encodes area price level. The feature path remains behind a flag.
 
 ## Quick start
 

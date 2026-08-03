@@ -56,7 +56,7 @@ Measured by breaking things while traffic was running.
 
 The single failed request during a node drain happened in the gap between the pod being told to stop and the load balancer removing it from rotation. The standard fix is a short delay before shutdown.
 
-Stopping the tracking server was the most useful result. Predictions carried on because each pod holds its model in memory, but a pod deleted during that window could not start again, because startup reads the live model pointer from the tracking server and verifies the signature. So the outage is invisible until something restarts, and then it is total.
+Stopping the tracking server produced the most useful finding. Predictions carried on because each pod holds its model in memory, but a pod deleted during that window could not start again, because startup reads the live model pointer from the tracking server and verifies the signature. So the outage is invisible until something restarts, and then it is total.
 
 ## Demonstrations
 
@@ -70,7 +70,7 @@ Each claim below was tested by causing the failure on purpose and recording what
 
 **Bad releases roll back on their own.** The serving deployment was pointed at a model version that does not exist. The new pod started, failed to load a model, and crashlooped. The rollout controller waited, saw no progress by its deadline, destroyed the new pod and left the old ones running. Throughout this a script sent prediction requests every 0.4 seconds and received a valid price every time.
 
-**Features match between training and serving.** For postcode area BS3, the training store and the serving store both returned a median price of £408,750 over 44 sales. Asking the training store for the same area at three different dates returned £372,500, £406,750 and £392,500, which is the point: a model trained on this sees only what was known at the time, not today's figure.
+**Features match between training and serving.** For postcode area BS3, the training store and the serving store both returned a median price of £408,750 over 44 sales. Asking the training store for the same area at three different dates returned £372,500, £406,750 and £392,500, A model trained on this sees only what was known at the time, not today's figure.
 
 **Drift is detected.** Comparing December 2025 against June 2026 found no significant drift, with a price distribution score of 0.02 against a threshold of 0.5, and the check passed. A synthetic copy of the same file with every price tripled and every tenure changed to leasehold moved every monitored column, and the check failed and wrote a report.
 
