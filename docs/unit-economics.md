@@ -28,9 +28,9 @@ Prices are indicative US list prices for a single region and should be re-checke
 | SageMaker endpoint | 1 × ml.m5.large, always on | ~$84 |
 | Object storage | tens of GB | ~$5 |
 | Observability | Datadog, few hosts | ~$100 |
-| **Total** | | **~£650–700 per month** |
+| **Total** | | **~£650 to 700 per month** |
 
-The equivalent self-hosted-on-cloud version, which is what Tamani did, is a single small EC2 instance running k3s at roughly £25–30 per month. Akili on a laptop is the electricity, call it £2 a month if it ran continuously, which it does not.
+The equivalent self-hosted-on-cloud version, which is what Tamani did, is a single small EC2 instance running k3s at roughly £25 to 30 per month. Akili on a laptop is the electricity, call it £2 a month if it ran continuously, which it does not.
 
 So the spread across the three options is roughly 300x from bottom to top.
 

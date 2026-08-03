@@ -100,14 +100,3 @@ The MLflow result is the most useful one. That outage is invisible until somethi
 
 `runbooks/` holds one file per alert, plus the postmortems and the chaos results.
 
-## Relevance to roles
-
-The whole project is MLOps and ML platform work.
-
-The GitOps setup, tenancy, rollouts, admission policy and supply chain are platform and DevOps work.
-
-The error budgets, alerts, runbooks, postmortems and chaos results are site reliability work.
-
-The validated ingestion, partitioned storage and scheduled pipelines are data engineering.
-
-The experiment tracking, evaluation gate, point in time correctness, drift detection and the recorded negative result are data science.

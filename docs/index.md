@@ -1,41 +1,87 @@
 # Akili Platform
 
-An MLOps platform that runs on Kubernetes. It takes a machine learning model and builds the infrastructure a team needs to operate it: pipelines that prepare data, training that is tracked and repeatable, a gate that decides which model goes live, deployment that can undo itself, monitoring that watches for the data changing, and signatures on everything that runs.
+An MLOps platform running on Kubernetes. It trains a machine learning model, decides whether the new model is good enough to replace the old one, deploys it without downtime, and watches for the data changing underneath it.
 
-The model predicts UK house prices from Land Registry records. It is intentionally simple. The engineering around it is the project.
+The model predicts UK house prices from Land Registry records. The model is simple on purpose. The engineering around it is the project.
 
-Source code: [github.com/MaicyMxtim/akili](https://github.com/MaicyMxtim/akili)
+**Source:** [github.com/MaicyMxtim/akili](https://github.com/MaicyMxtim/akili)
 
-The platform runs on a laptop rather than a cloud account, so there is no public endpoint. It rebuilds from the repository with two commands.
+The platform runs on a laptop, so there is no public endpoint. It rebuilds from the repository with two commands.
 
 ## Contents
 
-[Walkthrough](walkthrough.html). How the platform is put together and how a request moves through it.
+1. [Walkthrough](walkthrough.html). How the platform is built and what happens when it runs.
+2. [Costs](unit-economics.html). What the same platform costs as managed services.
+3. [Chaos experiments](https://github.com/MaicyMxtim/akili/blob/main/runbooks/chaos/experiments.md). Five deliberate failures and their results.
+4. [Postmortems](https://github.com/MaicyMxtim/akili/tree/main/runbooks/postmortems). Four real incidents from the build.
 
-[Costs](unit-economics.html). What the same capabilities cost as managed services, and when paying for them makes sense.
+## Stack
 
-[Chaos experiments](https://github.com/MaicyMxtim/akili/blob/main/runbooks/chaos/experiments.md). Five deliberate failures with measured results.
+| Layer | Tool |
+|---|---|
+| Cluster | k3d, 3 nodes |
+| Deployment | Argo CD |
+| Pipelines | Argo Workflows |
+| Storage | MinIO, DVC |
+| Validation | pandera |
+| Training | LightGBM |
+| Tracking and registry | MLflow |
+| Features | Feast, Redis |
+| Serving | FastAPI |
+| Releases | Argo Rollouts |
+| Monitoring | Prometheus, Grafana, Loki |
+| Drift | Evidently |
+| Supply chain | cosign, trivy, syft, Kyverno |
 
-[Postmortems](https://github.com/MaicyMxtim/akili/tree/main/runbooks/postmortems). Four real incidents from the build.
+## Model results
 
-## Results
+| Metric | Value |
+|---|---|
+| Mean absolute error | £93,229 |
+| Median error | 18.07% |
+| Training rows | 780,000 |
+| Test set | held out month |
 
-The model reaches £93,229 mean absolute error and 18.07% median error on a held out month, trained on 780,000 sales.
+## Reliability results
 
-Reliability was measured by breaking things while traffic ran. Killing a serving pod cost nothing: 90 requests, no failures. Draining a whole node cost one request in 90. Losing the feature store, the tracking server or its database caused no failures at all.
+Measured by breaking things while traffic was running.
 
-Security was tested the same way. An image without a valid signature is refused by the cluster. A model whose signature has been tampered with will not load, and the pod refuses to start rather than serve it.
+| Failure | Requests | Failed |
+|---|---|---|
+| Serving pod killed | 90 | 0 |
+| Node drained | 90 | 1 |
+| Feature store stopped | 90 | 0 |
+| Tracking server stopped | 90 | 0 |
+| Tracking database killed | 90 | 0 |
 
-Running cost is nothing. The same platform bought as managed services would cost roughly £650 to £700 a month.
+Stopping the tracking server caused no failures, but no new pod could start while it was down. That is the most useful result of the five.
 
 ## Demonstrations
 
-Every stage of the build finished with something demonstrable rather than a claim.
+| Claim | How it was proven |
+|---|---|
+| Bad data is rejected | A corrupted file was refused with a row and column report |
+| Training is repeatable | Two identical runs produced identical scores |
+| Weak models do not ship | A 20 tree model was trained and refused promotion |
+| Bad releases roll back | A broken model was deployed, detected and reversed with no dropped requests |
+| Features match | Training and serving returned identical values |
+| Drift is detected | Alerts stayed quiet on real data and fired on synthetic drift |
+| Unsigned images are blocked | The cluster refused an image without a valid signature |
+| Tampered models do not load | A pod refused to serve a model whose signature had been altered |
+| The cycle runs alone | Retrain to deploy ran twice with nobody involved |
 
-A deliberately corrupted data file was rejected, with a report naming the row and column at fault. Two identical training runs produced identical metrics. A deliberately weak model was trained and the gate refused to promote it. A broken model version was deployed on purpose, and the rollout detected it, reversed itself, and never dropped a request. Features read from the training store and the serving store matched exactly. Drift alerts stayed quiet on real data and fired on synthetic drift. The full retrain and deploy cycle ran twice with nobody touching it.
+## Costs
 
-## Two findings worth stating
+| Option | Monthly |
+|---|---|
+| This platform, on a laptop | £0 |
+| Self hosted on one cloud server | £25 to £30 |
+| Bought as managed services | £650 to £700 |
 
-The area price features from the feature store made the model slightly worse, £95,602 against £93,229. They are recorded as a negative result rather than dropped quietly.
+Orchestration and monitoring are most of the managed bill. Training the model is a few pence of compute.
 
-During the build, every prediction failed for ninety minutes while the platform reported itself healthy. The health check only confirmed that a model object existed, and the deployment check saw no errors because there was no traffic. Both are fixed, and the incident is written up in full.
+## Findings
+
+The area price features from the feature store made the model slightly worse, £95,602 against £93,229. Recorded as a negative result rather than dropped.
+
+Every prediction failed for ninety minutes during the build while the platform reported itself healthy. The health check only confirmed a model object existed, and the release check saw no errors because there was no traffic. Both are fixed and the incident is written up.
