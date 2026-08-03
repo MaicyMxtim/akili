@@ -39,7 +39,11 @@ spec:
               limits:
                 memory: 128Mi
         grafana:
-          adminPassword: REDACTED-ROTATED-CREDENTIAL
+          # credentials from a secret created outside git, not committed
+          admin:
+            existingSecret: grafana-admin
+            userKey: admin-user
+            passwordKey: admin-password
           sidecar:
             dashboards:
               searchNamespace: ALL

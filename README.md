@@ -62,7 +62,7 @@ make cluster    # create the k3d cluster (1 server, 2 agents)
 
 ## Rebuilding the platform from git
 
-After `make cluster`, four secrets bootstrap the cluster; everything else installs itself from this repository.
+After `make cluster`, a handful of secrets bootstrap the cluster; everything else installs itself from this repository. No credential is committed.
 
 ```
 # object storage credentials (in minio, argo, mlflow, akili-prod)
@@ -72,6 +72,12 @@ kubectl -n <ns> create secret generic minio-creds \
 # private registry pull (in akili-prod, argo, kyverno)
 kubectl -n <ns> create secret docker-registry ghcr-pull \
   --docker-server=ghcr.io --docker-username=MaicyMxtim --docker-password="$(gh auth token)"
+
+# database and dashboard credentials (never committed)
+kubectl -n mlflow create secret generic mlflow-postgres-auth \
+  --from-literal=password="$(openssl rand -hex 12)"
+kubectl -n monitoring create secret generic grafana-admin \
+  --from-literal=admin-user=admin --from-literal=admin-password="$(openssl rand -hex 12)"
 
 # model signing key (in argo)
 kubectl -n argo create secret generic model-signing-key --from-file=key.pem=$HOME/.akili-model-signing.pem
@@ -94,6 +100,6 @@ All by port-forward; nothing is exposed publicly.
 | Argo CD | `kubectl -n argocd port-forward svc/argocd-server 8080:80` | admin / initial admin secret |
 | MLflow | `kubectl -n mlflow port-forward svc/mlflow 5000:80` | none |
 | Argo Workflows | `kubectl -n argo port-forward svc/argo-workflows-server 2746:2746` | none |
-| Grafana | `kubectl -n monitoring port-forward svc/monitoring-grafana 3000:80` | admin / REDACTED-ROTATED-CREDENTIAL |
+| Grafana | `kubectl -n monitoring port-forward svc/monitoring-grafana 3000:80` | admin / from the `grafana-admin` secret |
 | MinIO console | `kubectl -n minio port-forward svc/minio-console 9001:9001` | root credentials |
 | Prediction API | `kubectl -n akili-prod port-forward svc/serve 8000:80` | none, docs at /docs |
