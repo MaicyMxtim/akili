@@ -1,0 +1,10 @@
+# Argo's helm chart creates this service account without pull secrets, so
+# workflows cannot pull the private ghcr images. Declared here rather than
+# patched by hand, so a cluster rebuild does not lose it.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argo-workflow
+  namespace: argo
+imagePullSecrets:
+  - name: ghcr-pull
