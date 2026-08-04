@@ -116,6 +116,28 @@ restart         the rollout brings the new model in gradually, watching error ra
 
 This cycle was run twice, end to end. The first run trained a model that tied the champion exactly and the gate refused it, which is correct behaviour. The second run promoted, signed and released a new model gradually behind the canary checks. Neither run needed a person.
 
+![The month-end workflow in Argo Workflows, all steps green](assets/img/workflows-monthly-dag.png)
+
+*A real month-end run in Argo Workflows. Every step completed: ingest, drift check, feature build, materialise, train, promote and a rollout restart.*
+
+## The platform in operation
+
+![Argo CD applications view showing all platform components healthy](assets/img/argocd-applications.png)
+
+*Argo CD manages every platform component as an application and reconciles the cluster from the repository. This is the whole platform: rollouts, workflows, storage, tracking, features, serving, monitoring and policy.*
+
+![Argo CD resource tree for the serving application](assets/img/argocd-serving-tree.png)
+
+*The serving application's resource tree: the rollout, its replica set and both serving pods, alongside the network policy, service monitor, SLO rules and the signed model configuration.*
+
+![Grafana model health dashboard during a live traffic run](assets/img/grafana-model-health.png)
+
+*The model health dashboard during a live traffic run: availability, p95 latency, prediction rate, error rate and per-pod memory.*
+
+![GitHub Actions CI run building and signing all pipeline images](assets/img/github-actions.png)
+
+*A CI run building, scanning and signing all six images. This particular run shipped the fix from the silent outage postmortem, the health check that makes a real prediction.*
+
 ## Design decisions
 
 **A gate between training and production.** A new model is promoted only when it beats the live champion on the same held-out data. The registry holds one name, `champion`, that training moves and serving reads, so the two sides stay decoupled.
