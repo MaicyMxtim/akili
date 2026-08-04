@@ -158,7 +158,15 @@ Each claim below was tested by causing the failure on purpose and recording what
 
 **Training is repeatable.** The same configuration on the same data was trained twice and produced £93,229 mean absolute error both times, identical to the pound. A fixed seed and a logged data path enforce this.
 
-**The gate refuses weak models.** A model trained deliberately badly scored £102,737 against the champion's £93,229. The gate refused it, tagged the run, and stopped the pipeline with the champion untouched.
+![MLflow comparing the champion run and a fresh retrain: identical parameters, identical metrics](assets/img/mlflow-runs.png)
+
+*MLflow comparing the champion against a retrain submitted hours later. The parameters, data paths and row counts match, and every metric is identical: £93,229 mean absolute error, 18.07% median error, 54.09% of predictions within 20%. The tags row also records the gate's verdicts: the champion carries `champion-v1` and the tied retrain carries `refused`.*
+
+**The gate refuses weak models.** A model trained deliberately badly scored £102,737 against the champion's £93,229. The gate refused it, tagged the run, and stopped the pipeline with the champion untouched. The gate also refuses ties. Promoting the identical retrain above produced this, and the pipeline stopped:
+
+```
+REFUSED: challenger MAE £93,229 does not beat champion £93,229 (min improvement £0)
+```
 
 **Bad releases roll back on their own.** The serving deployment was pointed at a model version that does not exist. The new pod crashlooped, the rollout controller destroyed it and kept the old pods serving. A script requesting predictions every 0.4 seconds received a valid price throughout.
 
@@ -166,7 +174,20 @@ Each claim below was tested by causing the failure on purpose and recording what
 
 **Drift is detected.** December 2025 against June 2026 passed with a distribution score of 0.02 against a threshold of 0.5. A synthetic file with every price tripled moved every monitored column, and the check failed and wrote a report.
 
-**Unsigned images are blocked.** A pod referencing an unsigned image digest was refused by the cluster, which named the policy that rejected it. The same pod with a signed image is admitted normally.
+**Unsigned images are blocked.** A pod referencing an unsigned image digest is refused by the cluster, which names the policy that rejected it. The same pod with a signed image is admitted normally. Running the test live:
+
+```
+$ kubectl apply -f unsigned-pod.yaml
+Error from server: admission webhook "mutate.kyverno.svc-ignore" denied the request:
+
+resource Pod/akili-prod/unsigned-test was blocked due to the following policies
+
+verify-image-signatures:
+  require-ci-signature: 'failed to verify image ghcr.io/maicymxtim/akili-serve@sha256:0000...0bad:
+    .attestors[0].entries[0].keyless: no signatures found'
+```
+
+Reaching the signature check at all takes some effort, because two earlier layers reject a careless pod first: the restricted Pod Security profile refuses a container without a hardened security context, and the namespace quota refuses one without resource requests and limits.
 
 **Tampered models are caught.** The stored signature for the live model was edited so its digest no longer matched the files. The next pod to start found the mismatch and refused to become ready, reporting "model v3 digest mismatch: artifact was modified after signing". Its sibling pod kept answering requests, so the service stayed up.
 
