@@ -1,6 +1,6 @@
 # Akili Platform
 
-An MLOps platform running on Kubernetes. It trains a machine learning model, decides whether the new version should replace the live one, deploys it without downtime, and watches for the data changing underneath it. The whole cycle runs without a person involved.
+Akili is an MLOps platform running on Kubernetes. The model it serves is ordinary on purpose; the platform around it is the project. It ingests each month's new data, retrains the model, decides whether the new version should replace the live one, releases it gradually, watches the data drifting underneath it, and rolls a bad release back on its own. The whole cycle runs without a person involved, and it repeats every month.
 
 ## Executive summary
 
@@ -112,6 +112,8 @@ promotion gate  score against the champion on the same held-out data
         │       a better model is signed and promoted · anything else is refused
         │
 restart         the rollout brings the new model in gradually, watching error rates
+        │
+        ↺       next month, the cycle runs again on new data
 ```
 
 This cycle was run twice, end to end. The first run trained a model that tied the champion exactly and the gate refused it, which is correct behaviour. The second run promoted, signed and released a new model gradually behind the canary checks. Neither run needed a person.
@@ -139,6 +141,8 @@ This cycle was run twice, end to end. The first run trained a model that tied th
 *A CI run building, scanning and signing all six images. This particular run shipped the fix from the silent outage postmortem, the health check that makes a real prediction.*
 
 ## Design decisions
+
+**One ecosystem, three separate jobs.** Three Argo projects run the platform, and each holds exactly one responsibility. Argo Workflows runs the pipelines, Argo CD keeps the cluster matching the repository, and Argo Rollouts controls how a new release replaces the old one. The boundaries mean any one of them could be swapped without touching the other two.
 
 **A gate between training and production.** A new model is promoted only when it beats the live champion on the same held-out data. The registry holds one name, `champion`, that training moves and serving reads, so the two sides stay decoupled.
 
@@ -204,6 +208,19 @@ Five failures were caused on purpose while a request stream was running. 449 of 
 | Tracking database killed | 90 | 0 |
 
 The single failed request during the node drain happened in the gap between the pod being told to stop and the load balancer removing it from rotation. The standard fix is a short delay before shutdown.
+
+## Failure paths
+
+Every way the platform can go wrong has a detector and an automatic response, and each row below was exercised for real in the evidence above.
+
+| Failure | Detected by | Automatic response |
+|---|---|---|
+| Corrupt data arrives | the pandera schema at ingest | the file is rejected with a row-level report, and nothing is stored |
+| Training produces a weaker model | the promotion gate scoring against the champion | the model is refused and tagged, and the champion stays live |
+| A release cannot start or raises errors | Argo Rollouts watching progress and live error rates | the new pods are destroyed, and the old ones keep serving |
+| The data drifts from the training set | Evidently's monthly comparison | the check fails with a report, and the next cycle retrains on the new data |
+| A model artifact is tampered with | signature verification at pod startup | the pod refuses to become ready, and its siblings keep serving |
+| An unsigned image reaches the cluster | Kyverno at admission | the pod is refused, with the policy named in the error |
 
 Stopping the tracking server produced the most useful finding. Predictions carried on because each pod holds its model in memory, but a pod deleted during that window could not start again, because startup reads the live model pointer from the tracking server. The outage stays invisible until something restarts, and then it is total. Full details are in the [chaos experiments](https://github.com/MaicyMxtim/akili/blob/main/runbooks/chaos/experiments.md).
 
