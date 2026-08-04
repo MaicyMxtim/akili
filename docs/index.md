@@ -209,6 +209,8 @@ Five failures were caused on purpose while a request stream was running. 449 of 
 
 The single failed request during the node drain happened in the gap between the pod being told to stop and the load balancer removing it from rotation. The standard fix is a short delay before shutdown.
 
+Stopping the tracking server produced the most useful finding. Predictions carried on because each pod holds its model in memory, but a pod deleted during that window could not start again, because startup reads the live model pointer from the tracking server. The outage stays invisible until something restarts, and then it is total. Full details are in the [chaos experiments](https://github.com/MaicyMxtim/akili/blob/main/runbooks/chaos/experiments.md).
+
 ## Failure paths
 
 Every way the platform can go wrong has a detector and an automatic response, and each row below was exercised for real in the evidence above.
@@ -221,8 +223,6 @@ Every way the platform can go wrong has a detector and an automatic response, an
 | The data drifts from the training set | Evidently's monthly comparison | the check fails with a report, and the next cycle retrains on the new data |
 | A model artifact is tampered with | signature verification at pod startup | the pod refuses to become ready, and its siblings keep serving |
 | An unsigned image reaches the cluster | Kyverno at admission | the pod is refused, with the policy named in the error |
-
-Stopping the tracking server produced the most useful finding. Predictions carried on because each pod holds its model in memory, but a pod deleted during that window could not start again, because startup reads the live model pointer from the tracking server. The outage stays invisible until something restarts, and then it is total. Full details are in the [chaos experiments](https://github.com/MaicyMxtim/akili/blob/main/runbooks/chaos/experiments.md).
 
 ## Incidents
 
